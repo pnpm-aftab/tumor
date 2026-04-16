@@ -133,13 +133,56 @@ app.post('/api/tutor', validateTutorRequest, async (req, res) => {
     try {
         let responseData;
 
-        const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
+        const apiKey = process.env.OPENROUTER_API_KEY;
         const hasValidApiKey = apiKey && apiKey !== '' && apiKey !== 'your_key_here';
 
         if (hasValidApiKey) {
-            responseData = await callLLM(questionText, screenshotImage, action);
+            try {
+                responseData = await callLLM(questionText, screenshotImage, action);
+            } catch (llmError) {
+                console.error('LLM error:', llmError.message);
+                
+                // Handle specific LLM errors
+                if (llmError.message === 'MISSING_API_KEY') {
+                    return res.status(503).json({ 
+                        error: 'Service temporarily unavailable. Please try again later.' 
+                    });
+                }
+                
+                if (llmError.message === 'TIMEOUT') {
+                    return res.status(504).json({ 
+                        error: 'Request timeout. The problem took too long to process.' 
+                    });
+                }
+                
+                if (llmError.message === 'RATE_LIMIT') {
+                    return res.status(429).json({ 
+                        error: 'Too many requests. Please wait a moment and try again.' 
+                    });
+                }
+                
+                if (llmError.message === 'UPSTREAM_ERROR') {
+                    return res.status(502).json({ 
+                        error: 'Upstream service error. Please try again later.' 
+                    });
+                }
+                
+                if (llmError.message === 'INVALID_JSON') {
+                    // Fall back to mock response on invalid JSON
+                    console.log('Falling back to mock response due to invalid LLM JSON');
+                    responseData = generateMockResponse(questionText, action, screenshotImage);
+                }
+                
+                if (!responseData) {
+                    // If we still don't have a response, return a generic error
+                    return res.status(502).json({ 
+                        error: 'Failed to process request. Please try again.' 
+                    });
+                }
+            }
         } else {
-            responseData = generateMockResponse(questionText, action);
+            // Mock mode - no API key
+            responseData = generateMockResponse(questionText, action, screenshotImage);
         }
 
         // Run symbolic verification if possible
@@ -172,17 +215,17 @@ function verifyMath(response) {
     return { status: "partial" };
 }
 
-function generateMockResponse(question, action) {
+function generateMockResponse(question, action, hasImage) {
     let steps = [
         {
             title: "Identify the goal",
-            explanationMarkdown: "We need to isolate the variable or simplify the expression provided.",
+            explanationMarkdown: "We need to isolate the variable or simplify the expression provided. This is a mock response for testing purposes.",
             latex: null,
             stepType: "setup"
         },
         {
             title: "Apply operations",
-            explanationMarkdown: "Standard algebraic rules apply here.",
+            explanationMarkdown: "Standard algebraic rules apply here. We would typically isolate the variable by performing inverse operations on both sides of the equation.",
             latex: "x + 2 = 5 \\implies x = 3",
             stepType: "computation"
         }
@@ -191,65 +234,135 @@ function generateMockResponse(question, action) {
     if (action === 'simpler') {
         steps = [{
             title: "Basic Approach",
-            explanationMarkdown: "Just subtract 2 from both sides to find x.",
+            explanationMarkdown: "Just subtract 2 from both sides to find x. This gives us the solution directly.",
             latex: "x = 5 - 2",
             stepType: "simplification"
         }];
     } else if (action === 'detailed') {
         steps.push({
             title: "Check your work",
-            explanationMarkdown: "Plug the value back into the original equation to verify.",
+            explanationMarkdown: "Plug the value back into the original equation to verify that it satisfies the equation.",
             latex: "3 + 2 = 5",
+            stepType: "verification"
+        });
+        steps.push({
+            title: "Final verification",
+            explanationMarkdown: "Since both sides equal 5, our solution x = 3 is correct.",
+            latex: "5 = 5 \\quad \\checkmark",
             stepType: "verification"
         });
     }
 
+    // Extract LaTeX from question if it contains an equation
+    let parsedExpression = question.includes('=') ? question : "x+2=5";
+    
+    // If there's an image, indicate we extracted from it
+    if (hasImage) {
+        parsedExpression = "2x + 3 = 7"; // Simulate extraction from image
+    }
+
     return {
         problemSummary: `Solving: ${question}`,
-        parsedExpressionLatex: question.includes('=') ? question : "x+2=5",
+        parsedExpressionLatex: parsedExpression,
         steps: steps,
         finalAnswer: action === 'simpler' ? "x = 3" : "The result is 3.",
         conceptSummary: "Basic Algebra",
-        confidence: "high"
+        confidence: hasImage ? "medium" : "high" // Lower confidence when extracting from images
     };
 }
 
 async function callLLM(text, image, action) {
-    const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
-    const baseURL = process.env.OPENROUTER_API_KEY ? 'https://openrouter.ai/api/v1' : undefined;
-    const model = process.env.LLM_MODEL || (process.env.OPENROUTER_API_KEY ? 'openai/gpt-4o' : 'gpt-4o');
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    
+    // Check if we have a valid API key
+    if (!apiKey || apiKey === '' || apiKey === 'your_key_here') {
+        throw new Error('MISSING_API_KEY');
+    }
+
+    const baseURL = 'https://openrouter.ai/api/v1';
+    const model = process.env.LLM_MODEL || 'openai/gpt-4o';
 
     const openai = new OpenAI({
         apiKey: apiKey,
         baseURL: baseURL
     });
 
-    const systemPrompt = `
-    You are a friendly and encouraging macOS math tutor.
-    Your goal is to help students understand algebra and calculus.
-    Provide a structured JSON response.
+    // Build system prompt with specific instructions
+    let systemPrompt = `You are a friendly and encouraging macOS math tutor.
+Your goal is to help students understand algebra and calculus.
 
-    Response Schema:
-    {
-        "problemSummary": "Brief summary of the problem",
-        "parsedExpressionLatex": "The core equation in LaTeX",
-        "steps": [
-            {
-                "title": "Step Title",
-                "explanationMarkdown": "Brief explanation",
-                "latex": "LaTeX expression for this step",
-                "stepType": "setup|computation|simplification|verification"
-            }
-        ],
-        "finalAnswer": "The final result",
-        "conceptSummary": "The underlying mathematical concept",
-        "confidence": "low|medium|high"
+CRITICAL: You must respond with valid JSON only. No markdown, no code blocks, no prose outside the JSON.
+
+Response Schema (follow exactly):
+{
+    "problemSummary": "Brief summary of the problem in 1-2 sentences",
+    "parsedExpressionLatex": "The core mathematical expression in LaTeX format (e.g., "2x + 3 = 7" or "\\int x^2 dx")",
+    "steps": [
+        {
+            "title": "Short step title (2-5 words)",
+            "explanationMarkdown": "Clear explanation using markdown formatting (at least 20 words)",
+            "latex": "LaTeX expression for this step (or null if not applicable)",
+            "stepType": "One of: setup, computation, simplification, verification"
+        }
+    ],
+    "finalAnswer": "The final answer (clear and concise)",
+    "conceptSummary": "The underlying mathematical concept (1-2 sentences)",
+    "confidence": "One of: low, medium, high"
+}
+
+Instructions for different scenarios:
+`;
+
+    if (image) {
+        systemPrompt += `
+IMAGE PROCESSING:
+- Extract mathematical content from the screenshot image
+- Convert any handwritten or printed math into valid LaTeX
+- Self-assess your extraction confidence: use "low" if the image is blurry/unclear, "medium" if moderately clear, "high" if very clear
+- Normalize extracted math into proper LaTeX format (fix common OCR artifacts like "2x" → "2x", "+" → "+")
+- If the image contains no recognizable math, rely on the text question and set confidence to "low"
+- The parsedExpressionLatex field MUST contain the extracted LaTeX from the image
+`;
+    } else {
+        systemPrompt += `
+TEXT-ONLY PROCESSING:
+- Parse the mathematical expression from the question text
+- Convert it to proper LaTeX format in parsedExpressionLatex
+`;
     }
 
-    Action Context: ${action || 'default'}
-    If action is 'simpler', provide a very basic explanation.
-    If action is 'detailed', provide a deeper derivation.
-    `;
+    systemPrompt += `
+ACTION-SPECIFIC BEHAVIOR:
+`;
+
+    if (action === 'simpler') {
+        systemPrompt += `- Provide a VERY basic explanation with fewer steps (2-3 steps maximum)
+- Use simple language appropriate for beginners
+- Focus on the essential steps only
+- Skip detailed derivations
+`;
+    } else if (action === 'detailed') {
+        systemPrompt += `- Provide a comprehensive explanation with many steps (5+ steps)
+- Include detailed derivations and reasoning
+- Add verification steps to check work
+- Explain the "why" behind each step
+`;
+    } else {
+        systemPrompt += `- Provide a balanced explanation with 3-4 steps
+- Include appropriate detail for the problem complexity
+- Add verification when applicable
+`;
+    }
+
+    systemPrompt += `
+QUALITY REQUIREMENTS:
+- Each step's explanationMarkdown must be at least 20 words
+- Steps must be logically ordered (setup → computation → simplification → verification)
+- All LaTeX must be valid and properly formatted
+- confidence field must reflect your certainty about the answer (low/medium/high)
+- If you're unsure about the extraction from an image, set confidence to "low" or "medium"
+
+Remember: Respond with ONLY the JSON object. No additional text.`;
 
     const messages = [
         { role: "system", content: systemPrompt },
@@ -262,14 +375,51 @@ async function callLLM(text, image, action) {
         }
     ];
 
-    const response = await openai.chat.completions.create({
-        model: model,
-        messages: messages,
-        response_format: { type: "json_object" },
-        timeout: 30000 // 30 second timeout
-    });
+    try {
+        const response = await openai.chat.completions.create({
+            model: model,
+            messages: messages,
+            response_format: { type: "json_object" },
+            timeout: 50000 // 50 second timeout
+        });
 
-    return JSON.parse(response.choices[0].message.content);
+        const content = response.choices[0].message.content;
+        
+        if (!content) {
+            throw new Error('EMPTY_RESPONSE');
+        }
+
+        // Parse JSON response
+        let parsed;
+        try {
+            parsed = JSON.parse(content);
+        } catch (parseError) {
+            console.error('Failed to parse LLM response as JSON:', content);
+            throw new Error('INVALID_JSON');
+        }
+
+        return parsed;
+    } catch (error) {
+        // Handle specific error types
+        if (error.message === 'MISSING_API_KEY') {
+            throw error; // Re-throw for handler
+        }
+        
+        if (error.code === 'ETIMEDOUT' || error.type === 'timeout' || error.message.includes('timeout')) {
+            throw new Error('TIMEOUT');
+        }
+        
+        if (error.status === 429) {
+            throw new Error('RATE_LIMIT');
+        }
+        
+        if (error.status >= 500) {
+            throw new Error('UPSTREAM_ERROR');
+        }
+        
+        // Re-throw other errors
+        throw error;
+    }
 }
 
 // Global error handler - must be last
