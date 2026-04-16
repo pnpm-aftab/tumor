@@ -439,7 +439,7 @@ async function callLLM(text, image, action) {
     }
 
     const baseURL = 'https://openrouter.ai/api/v1';
-    const model = process.env.LLM_MODEL || 'openai/gpt-4o';
+    const model = process.env.LLM_MODEL || 'openrouter/elephant-alpha';
 
     const openai = new OpenAI({
         apiKey: apiKey,
