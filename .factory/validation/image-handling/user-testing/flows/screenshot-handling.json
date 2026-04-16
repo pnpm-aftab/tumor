@@ -1,0 +1,119 @@
+{
+  "flowId": "screenshot-handling",
+  "assertionIds": [
+    "VAL-OCR-001",
+    "VAL-OCR-002",
+    "VAL-OCR-003",
+    "VAL-OCR-004",
+    "VAL-OCR-005",
+    "VAL-OCR-006"
+  ],
+  "status": "pass",
+  "summary": "All screenshot/image handling tests passed successfully",
+  "testResults": {
+    "total": 14,
+    "passed": 14,
+    "failed": 0,
+    "skipped": 0
+  },
+  "assertions": {
+    "VAL-OCR-001": {
+      "status": "pass",
+      "title": "LLM extracts math content from screenshots",
+      "tests": [
+        {
+          "name": "should extract math from screenshot image",
+          "status": "pass",
+          "duration": 12.553
+        },
+        {
+          "name": "should use image as primary source with generic text",
+          "status": "pass",
+          "duration": 8.374
+        }
+      ],
+      "evidence": "Test verified that screenshot images are processed and parsedExpressionLatex contains extracted content. Response addresses the problem from the screenshot."
+    },
+    "VAL-OCR-002": {
+      "status": "pass",
+      "title": "LLM self-assesses extraction confidence",
+      "tests": [
+        {
+          "name": "should set confidence based on extraction quality",
+          "status": "pass",
+          "duration": 0.794
+        }
+      ],
+      "evidence": "Test verified that confidence field is set to one of 'low', 'medium', or 'high' based on image quality and extraction success."
+    },
+    "VAL-OCR-003": {
+      "status": "pass",
+      "title": "Low image quality results in low confidence",
+      "tests": [
+        {
+          "name": "should return low confidence for poor quality image",
+          "status": "pass",
+          "duration": 0.738
+        },
+        {
+          "name": "should still provide response despite low confidence",
+          "status": "pass",
+          "duration": 0.604
+        }
+      ],
+      "evidence": "Test verified that poor quality images result in 'low' confidence, but the system still provides a valid response with steps and final answer."
+    },
+    "VAL-OCR-004": {
+      "status": "pass",
+      "title": "LLM normalizes extracted math into valid LaTeX",
+      "tests": [
+        {
+          "name": "should produce valid LaTeX in parsedExpressionLatex",
+          "status": "pass",
+          "duration": 0.477
+        }
+      ],
+      "evidence": "Test verified that parsedExpressionLatex contains a non-empty string with normalized LaTeX content."
+    },
+    "VAL-OCR-005": {
+      "status": "pass",
+      "title": "Non-math screenshot handling",
+      "tests": [
+        {
+          "name": "should handle non-math image gracefully",
+          "status": "pass",
+          "duration": 0.539
+        },
+        {
+          "name": "should not crash on non-math image",
+          "status": "pass",
+          "duration": 0.502
+        }
+      ],
+      "evidence": "Test verified that non-math images are handled gracefully - system relies on text question, sets confidence to 'low', and provides a valid response without crashing."
+    },
+    "VAL-OCR-006": {
+      "status": "pass",
+      "title": "Very large images are handled gracefully",
+      "tests": [
+        {
+          "name": "should reject very large images with 400",
+          "status": "pass",
+          "duration": 27.710
+        },
+        {
+          "name": "should remain responsive after large image handling",
+          "status": "pass",
+          "duration": 17.667
+        }
+      ],
+      "evidence": "Test verified that large images are rejected with appropriate status code (400/413), and the server remains responsive for subsequent requests."
+    }
+  },
+  "toolsUsed": ["node --test", "curl"],
+  "testingSurface": "Backend HTTP API",
+  "isolation": "Stateless API - no shared state between requests",
+  "duration": 1314.49,
+  "frictions": [],
+  "blockers": []
+}

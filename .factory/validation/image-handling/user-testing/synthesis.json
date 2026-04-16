@@ -1,0 +1,66 @@
+{
+  "milestone": "image-handling",
+  "round": 1,
+  "status": "pass",
+  "assertionsSummary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-OCR-001",
+    "VAL-OCR-002",
+    "VAL-OCR-003",
+    "VAL-OCR-004",
+    "VAL-OCR-005",
+    "VAL-OCR-006"
+  ],
+  "failedAssertions": [],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": null,
+  "testingSummary": {
+    "flowReports": [
+      "screenshot-handling.json"
+    ],
+    "totalTests": 14,
+    "passedTests": 14,
+    "failedTests": 0,
+    "testingDuration": 1314.49,
+    "testingSurface": "Backend HTTP API",
+    "toolsUsed": ["node --test", "curl"]
+  },
+  "assertionDetails": {
+    "VAL-OCR-001": {
+      "title": "LLM extracts math content from screenshots",
+      "status": "pass",
+      "evidence": "Tests verified that screenshot images are processed correctly. The system extracts math content from images and includes it in parsedExpressionLatex. Response addresses the problem from the screenshot."
+    },
+    "VAL-OCR-002": {
+      "title": "LLM self-assesses extraction confidence",
+      "status": "pass",
+      "evidence": "Test verified that confidence field is properly set based on extraction quality. System correctly assigns 'low', 'medium', or 'high' confidence levels."
+    },
+    "VAL-OCR-003": {
+      "title": "Low image quality results in low confidence",
+      "status": "pass",
+      "evidence": "Tests verified that poor quality images result in 'low' confidence, but the system still provides a valid response with steps and final answer."
+    },
+    "VAL-OCR-004": {
+      "title": "LLM normalizes extracted math into valid LaTeX",
+      "status": "pass",
+      "evidence": "Test verified that parsedExpressionLatex contains a non-empty string with normalized LaTeX content from image extraction."
+    },
+    "VAL-OCR-005": {
+      "title": "Non-math screenshot handling",
+      "status": "pass",
+      "evidence": "Tests verified that non-math images are handled gracefully. System relies on text question, sets confidence to 'low', and provides valid response without crashing."
+    },
+    "VAL-OCR-006": {
+      "title": "Very large images are handled gracefully",
+      "status": "pass",
+      "evidence": "Tests verified that large images are rejected with appropriate status code (400/413), and the server remains responsive for subsequent requests."
+    }
+  }
+}
