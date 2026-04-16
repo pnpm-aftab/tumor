@@ -29,9 +29,15 @@ const TutoringResultSchema = z.object({
 
 // Function to validate and repair LLM response
 function validateAndRepairLLMResponse(llmResponse, usedDefaults = false) {
+    // ALWAYS strip the verification field from LLM responses
+    // The LLM may hallucinate a verification field, but we want verifyMath() to always run
+    // and produce the real symbolic verification result
+    const llmResponseWithoutVerification = { ...llmResponse };
+    delete llmResponseWithoutVerification.verification;
+
     try {
         // Try to parse the response with the schema
-        const validated = TutoringResultSchema.parse(llmResponse);
+        const validated = TutoringResultSchema.parse(llmResponseWithoutVerification);
         return validated;
     } catch (error) {
         if (error.name === 'ZodError') {
@@ -39,10 +45,10 @@ function validateAndRepairLLMResponse(llmResponse, usedDefaults = false) {
             
             // Repair the response with defaults
             const repaired = {
-                problemSummary: llmResponse.problemSummary || "Math problem solution",
-                parsedExpressionLatex: llmResponse.parsedExpressionLatex || null,
-                steps: llmResponse.steps && llmResponse.steps.length > 0
-                    ? llmResponse.steps.map(step => ({
+                problemSummary: llmResponseWithoutVerification.problemSummary || "Math problem solution",
+                parsedExpressionLatex: llmResponseWithoutVerification.parsedExpressionLatex || null,
+                steps: llmResponseWithoutVerification.steps && llmResponseWithoutVerification.steps.length > 0
+                    ? llmResponseWithoutVerification.steps.map(step => ({
                         title: step.title || "Solution Step",
                         explanationMarkdown: step.explanationMarkdown || "This step solves part of the problem.",
                         latex: step.latex || null,
@@ -58,12 +64,11 @@ function validateAndRepairLLMResponse(llmResponse, usedDefaults = false) {
                             stepType: "setup"
                         }
                     ],
-                finalAnswer: llmResponse.finalAnswer || "See solution steps above",
-                conceptSummary: llmResponse.conceptSummary || "Mathematical problem solving",
-                confidence: usedDefaults ? 'low' : (llmResponse.confidence || 'low'),
-                // Only set verification if LLM explicitly returned one that needs repair
-                // Otherwise leave it undefined so the main handler's verifyMath() can run
-                verification: llmResponse.verification ? { ...llmResponse.verification } : undefined
+                finalAnswer: llmResponseWithoutVerification.finalAnswer || "See solution steps above",
+                conceptSummary: llmResponseWithoutVerification.conceptSummary || "Mathematical problem solving",
+                confidence: usedDefaults ? 'low' : (llmResponseWithoutVerification.confidence || 'low')
+                // NOTE: We do NOT set verification here - let it be undefined
+                // so the main handler's verifyMath() can run and produce the real result
             };
             
             // Validate the repaired response
@@ -579,6 +584,14 @@ Remember: Respond with ONLY the JSON object. No additional text.`;
         } catch (parseError) {
             console.error('Failed to parse LLM response as JSON:', content);
             throw new Error('INVALID_JSON');
+        }
+
+        // ALWAYS strip the verification field from LLM responses
+        // The LLM may hallucinate a verification field, but we want verifyMath() to always run
+        // and produce the real symbolic verification result
+        if (parsed.verification) {
+            console.log('LLM returned a verification field - stripping it so verifyMath() can run');
+            delete parsed.verification;
         }
 
         // Validate and repair the response
