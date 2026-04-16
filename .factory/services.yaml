@@ -1,0 +1,14 @@
+commands:
+  install: cd backend && npm install
+  test: cd backend && npm test
+  typecheck: "echo 'No typecheck - JavaScript project'"
+  lint: "echo 'No linter configured'"
+  build: "echo 'No build step needed'"
+
+services:
+  backend:
+    start: cd backend && PORT=3000 node server.js
+    stop: lsof -ti :3000 | xargs kill
+    healthcheck: curl -sf http://localhost:3000/api/health
+    port: 3000
+    depends_on: []
