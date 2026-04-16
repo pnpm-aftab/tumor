@@ -1,0 +1,414 @@
+{
+  "groupId": "request-validation",
+  "testedAt": "2026-04-16T03:24:54.388Z",
+  "isolation": {
+    "backendApiUrl": "http://localhost:3000",
+    "testFile": "backend/tests/contract/request-validation.test.js",
+    "serverStatus": "already started on port 3000",
+    "state": "stateless API - each request is independent"
+  },
+  "toolsUsed": ["node --test", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-API-001",
+      "title": "Required field questionText must be present and non-empty",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Send POST /api/tutor with empty body {}",
+          "expected": "HTTP 400 with error mentioning questionText",
+          "observed": "HTTP 400 with error 'questionText is required and must be a non-empty string'"
+        },
+        {
+          "action": "Send POST /api/tutor with empty string questionText",
+          "expected": "HTTP 400 with error",
+          "observed": "HTTP 400 with error 'questionText is required and must be a non-empty string'"
+        },
+        {
+          "action": "Send POST /api/tutor with null questionText",
+          "expected": "HTTP 400 with error",
+          "observed": "HTTP 400 with error 'questionText is required and must be a non-empty string'"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "statusCode": "400",
+        "errorMessages": ["questionText is required and must be a non-empty string"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-API-002",
+      "title": "questionText must be a string",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Send POST /api/tutor with numeric questionText (123)",
+          "expected": "HTTP 400 with error",
+          "observed": "HTTP 400 with error 'questionText must be a string'"
+        },
+        {
+          "action": "Send POST /api/tutor with array questionText",
+          "expected": "HTTP 400 with error",
+          "observed": "HTTP 400 with error 'questionText must be a string'"
+        },
+        {
+          "action": "Send POST /api/tutor with object questionText",
+          "expected": "HTTP 400 with error",
+          "observed": "HTTP 400 with error 'questionText must be a string'"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "statusCode": "400",
+        "errorMessages": ["questionText must be a string"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-API-004",
+      "title": "screenshotImage must be valid base64 when present",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Send POST /api/tutor without screenshotImage field",
+          "expected": "HTTP 200 with valid response",
+          "observed": "HTTP 200 with complete response structure"
+        },
+        {
+          "action": "Send POST /api/tutor with invalid base64 screenshotImage",
+          "expected": "HTTP 400 with error about invalid image/base64",
+          "observed": "HTTP 400 with error 'screenshotImage must be a valid base64-encoded string'"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "statusCode": "200 / 400",
+        "errorMessages": ["screenshotImage must be a valid base64-encoded string"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-API-005",
+      "title": "action field accepts only valid values",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Send POST /api/tutor with invalid action 'foobar'",
+          "expected": "HTTP 400 with error",
+          "observed": "HTTP 400 with error 'action must be one of: simpler, detailed, or null'"
+        },
+        {
+          "action": "Send POST /api/tutor with action 'simpler'",
+          "expected": "HTTP 200",
+          "observed": "HTTP 200"
+        },
+        {
+          "action": "Send POST /api/tutor with action 'detailed'",
+          "expected": "HTTP 200",
+          "observed": "HTTP 200"
+        },
+        {
+          "action": "Send POST /api/tutor with action null",
+          "expected": "HTTP 200",
+          "observed": "HTTP 200"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "statusCode": "200 / 400",
+        "errorMessages": ["action must be one of: simpler, detailed, or null"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-API-010",
+      "title": "Response content type is application/json",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Check Content-Type header for successful request",
+          "expected": "application/json",
+          "observed": "application/json; charset=utf-8"
+        },
+        {
+          "action": "Check Content-Type header for error response",
+          "expected": "application/json",
+          "observed": "application/json; charset=utf-8"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "contentType": "application/json; charset=utf-8"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-API-011",
+      "title": "Large request body is rejected gracefully",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Send POST /api/tutor with 11MB body",
+          "expected": "HTTP 413 with error",
+          "observed": "HTTP 413 with error 'request entity too large'"
+        },
+        {
+          "action": "Send valid request after large body rejection",
+          "expected": "HTTP 200",
+          "observed": "HTTP 200 - server remained responsive"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "statusCode": "413 / 200",
+        "errorMessages": ["request entity too large"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-API-012",
+      "title": "Malformed JSON body returns 400",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Send POST /api/tutor with malformed JSON (missing closing brace)",
+          "expected": "HTTP 400 with JSON error message",
+          "observed": "HTTP 400 with error 'Unexpected end of JSON input'"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "statusCode": "400",
+        "errorMessages": ["Unexpected end of JSON input"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-API-013",
+      "title": "CORS headers present",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Send OPTIONS request to /api/tutor",
+          "expected": "Response includes access-control-allow-origin header",
+          "observed": "Response includes 'access-control-allow-origin: *'"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "corsHeaders": "access-control-allow-origin: *"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-API-014",
+      "title": "questionText length limit enforced",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Send POST /api/tutor with 2001 character questionText",
+          "expected": "HTTP 400 with error about length limit",
+          "observed": "HTTP 400 with error 'questionText must not exceed 2000 characters'"
+        },
+        {
+          "action": "Send POST /api/tutor with exactly 2000 character questionText",
+          "expected": "HTTP 200",
+          "observed": "HTTP 200"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "statusCode": "400 / 200",
+        "errorMessages": ["questionText must not exceed 2000 characters"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-API-015",
+      "title": "questionText with special characters/Unicode is handled",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Send POST /api/tutor with Unicode math symbols (∫ x² dx)",
+          "expected": "HTTP 200 with valid response",
+          "observed": "HTTP 200 with response containing problemSummary"
+        },
+        {
+          "action": "Send POST /api/tutor with emojis in questionText",
+          "expected": "HTTP 200 with valid response",
+          "observed": "HTTP 200"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "statusCode": "200",
+        "specialCharactersHandled": ["∫ x² dx", "Solve this equation 📐 2x + 3 = 7"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ERR-001",
+      "title": "Missing required fields return 400",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Covered by VAL-API-001 tests",
+          "expected": "HTTP 400 for missing required fields",
+          "observed": "All tests return HTTP 400 for missing questionText"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "statusCode": "400",
+        "coveredBy": "VAL-API-001"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ERR-005",
+      "title": "Server remains responsive after errors",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Send bad request, then two valid requests",
+          "expected": "Server returns HTTP 200 for both valid requests",
+          "observed": "First request returns 400, subsequent requests return 200"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "statusCode": "400 / 200 / 200",
+        "serverResponsive": true
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ERR-007",
+      "title": "Request with null optional fields works",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Send POST /api/tutor with null screenshotImage",
+          "expected": "HTTP 200",
+          "observed": "HTTP 200"
+        },
+        {
+          "action": "Send POST /api/tutor with null action",
+          "expected": "HTTP 200",
+          "observed": "HTTP 200"
+        },
+        {
+          "action": "Send POST /api/tutor with all optional fields as null",
+          "expected": "HTTP 200",
+          "observed": "HTTP 200"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "statusCode": "200",
+        "nullFieldsHandled": ["screenshotImage", "action"]
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ERR-008",
+      "title": "Server starts successfully with correct env",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Health check to /api/health",
+          "expected": "HTTP 200",
+          "observed": "HTTP 200 with body {\"status\":\"ok\",\"timestamp\":\"2026-04-16T03:24:54.388Z\"}"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "statusCode": "200",
+        "healthCheck": "pass"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ERR-009",
+      "title": "Server starts with missing optional env vars",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Server started without LLM_MODEL environment variable",
+          "expected": "Server starts with sensible defaults",
+          "observed": "Server started successfully on port 3000, using default model"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "serverStarted": true,
+        "usingDefaults": true
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ERR-010",
+      "title": "Uncaught exceptions do not crash the process",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Observed server behavior throughout all tests",
+          "expected": "Server remains running and responsive",
+          "observed": "Server remained responsive throughout 30 tests, no crashes observed"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "totalTests": 30,
+        "crashes": 0,
+        "serverResponsive": true
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-ERR-011",
+      "title": "Error responses must not leak internal details",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Check error response for stack traces",
+          "expected": "No stack traces in error response",
+          "observed": "Error response contains only generic message, no stack traces"
+        },
+        {
+          "action": "Check error response for API key names",
+          "expected": "No API key names in error response",
+          "observed": "Error response does not expose API key names or internal details"
+        }
+      ],
+      "evidence": {
+        "testOutput": "foundation/request-validation/test-output.txt",
+        "evidenceLog": "foundation/request-validation/evidence-log.md",
+        "noStackTraces": true,
+        "noApiKeys": true,
+        "errorResponsesSafe": true
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 17 assertions: 17 passed, 0 failed. All 30 individual test cases passed successfully. The request validation implementation correctly handles required fields, data types, base64 validation, action values, content types, payload limits, malformed JSON, CORS, length limits, Unicode/special characters, error responses, and server stability. No frictions or blockers encountered."
+}
