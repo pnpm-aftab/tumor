@@ -1,0 +1,71 @@
+{
+  "groupId": "val-e2e-001-round5",
+  "testedAt": "2026-04-16T04:56:20.000Z",
+  "isolation": {
+    "backendAPIUrl": "http://localhost:3000",
+    "apiEndpoint": "POST /api/tutor",
+    "apiKey": "configured in backend/.env",
+    "validator": "only validator running",
+    "databaseState": "stateless backend"
+  },
+  "toolsUsed": ["node", "http", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-E2E-001",
+      "title": "Text-only algebra question end-to-end",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Send POST request to http://localhost:3000/api/tutor with body: {\"questionText\": \"solve 3x - 7 = 14\"}",
+          "expected": "HTTP 200 with valid JSON response containing all required fields",
+          "observed": "HTTP 200 with valid JSON response containing all required fields"
+        },
+        {
+          "action": "Verify response has all required top-level keys",
+          "expected": "Response contains problemSummary, parsedExpressionLatex, steps, finalAnswer, conceptSummary, confidence, verification",
+          "observed": "All required keys present in response"
+        },
+        {
+          "action": "Verify finalAnswer contains correct answer",
+          "expected": "finalAnswer contains '7' (the solution to 3x - 7 = 14)",
+          "observed": "finalAnswer is exactly '7'"
+        },
+        {
+          "action": "Verify verification.status === 'passed' (ROUND 5 CRITICAL CHECK)",
+          "expected": "verification.status should be 'passed' after Round 5 fix for answer format normalization",
+          "observed": "verification.status === 'passed' - ROUND 5 FIX CONFIRMED WORKING"
+        },
+        {
+          "action": "Verify steps array is non-empty and logically ordered",
+          "expected": "steps array has at least 1 step with setup → computation → verification flow",
+          "observed": "steps array has 4 steps with setup and computation phases"
+        },
+        {
+          "action": "Verify confidence is valid",
+          "expected": "confidence is one of 'low', 'medium', 'high'",
+          "observed": "confidence is 'high'"
+        }
+      ],
+      "evidence": {
+        "fullResponseJSON": "evidence/polish/val-e2e-001-round5/response-full.json",
+        "testOutput": "evidence/polish/val-e2e-001-round5/test-output.txt",
+        "httpStatus": "200",
+        "responseHeaders": {
+          "content-type": "application/json; charset=utf-8",
+          "access-control-allow-origin": "*"
+        },
+        "finalAnswer": "7",
+        "verificationStatus": "passed",
+        "verificationNotes": [
+          "Substituted x=7: 3x - 7=14, 14=14"
+        ],
+        "stepsCount": 4,
+        "confidence": "high"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "VAL-E2E-001 Round 5 test PASSED. The Round 5 fix for answer format normalization in verifyLinearEquation() and verifyQuadraticEquation() is CONFIRMED WORKING. The LLM returned '7' as the finalAnswer (not 'x=7'), and the verification system correctly normalized this to 'x=7' format for verification, resulting in verification.status === 'passed' instead of the previous 'partial' status. All 7 validation checks passed: HTTP status, response shape, correct answer, verification status (critical), steps structure, step ordering, and confidence level."
+}
