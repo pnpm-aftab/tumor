@@ -1,15 +1,17 @@
 {
   "milestone": "polish",
-  "round": 1,
+  "round": 2,
   "status": "fail",
   "assertionsSummary": {
     "total": 10,
-    "passed": 7,
-    "failed": 3,
+    "passed": 9,
+    "failed": 1,
     "blocked": 0
   },
   "passedAssertions": [
+    "VAL-E2E-002",
     "VAL-E2E-003",
+    "VAL-E2E-004",
     "VAL-E2E-005",
     "VAL-E2E-006",
     "VAL-E2E-007",
@@ -20,46 +22,35 @@
   "failedAssertions": [
     {
       "id": "VAL-E2E-001",
-      "reason": "Mathematical answer incorrect (expected x=7, got x=3). Verification status is 'partial' instead of 'passed'. Root cause: Backend running in mock mode without real LLM API key (OPENROUTER_API_KEY='your_key_here'). Mock mode returns generic placeholder responses instead of real mathematical reasoning."
-    },
-    {
-      "id": "VAL-E2E-002",
-      "reason": "Derivative answer incorrect (expected 3x²+2, got 'The result is 3'). Verification status is 'partial' instead of 'passed'. Root cause: Backend running in mock mode without real LLM API key. Mock mode returns generic placeholder responses instead of real calculus computations."
-    },
-    {
-      "id": "VAL-E2E-004",
-      "reason": "Refinement answers differ between actions for the same problem (default: 'The result is 3', simpler: 'x = 3', detailed: 'The result is 3'). Format inconsistencies between responses. Root cause: Backend running in mock mode without real LLM API key. Mock mode returns inconsistent placeholder responses instead of coherent refinement variations."
+      "reason": "Verification status is 'partial' instead of required 'passed'. The LLM response repair mechanism in validateAndRepairLLMResponse() automatically sets verification.status to 'partial' when it repairs a response, even when the repaired response is mathematically correct. The actual mathematical answer is correct (x=7), steps are pedagogically sound (4 steps with logical flow), but the verification status requirement is not met due to the repair mechanism overriding the actual mathematical verification."
     }
   ],
   "blockedAssertions": [],
   "appliedUpdates": [],
-  "previousRound": null,
+  "previousRound": ".factory/validation/polish/user-testing/synthesis.json",
   "details": {
-    "testingApproach": "Two concurrent flow validator subagents tested 10 E2E assertions against the backend API running on localhost:3000. Tests covered text-only algebra/calculus, screenshot processing, refinement flows, error recovery, low-confidence handling, verification degradation, schema validation, and concurrent request handling.",
+    "testingApproach": "Re-run of Round 1 failed assertions after fix implementation. One flow validator subagent tested 3 E2E assertions against the backend API running on localhost:3000 with real OPENROUTER_API_KEY. Tests covered text-only algebra, text-only calculus, and refinement flows.",
     "flowValidators": [
       {
-        "groupId": "e2e-flows-1-5",
-        "assertions": ["VAL-E2E-001", "VAL-E2E-002", "VAL-E2E-003", "VAL-E2E-004", "VAL-E2E-005"],
-        "results": "2 passed, 3 failed",
-        "report": ".factory/validation/polish/user-testing/flows/e2e-flows-1-5.json"
-      },
-      {
-        "groupId": "e2e-flows-6-10",
-        "assertions": ["VAL-E2E-006", "VAL-E2E-007", "VAL-E2E-008", "VAL-E2E-009", "VAL-E2E-010"],
-        "results": "5 passed, 0 failed",
-        "report": ".factory/validation/polish/user-testing/flows/e2e-flows-6-10.json"
+        "groupId": "e2e-rerun-1-3",
+        "assertions": ["VAL-E2E-001", "VAL-E2E-002", "VAL-E2E-004"],
+        "results": "2 passed, 1 failed",
+        "report": ".factory/validation/polish/user-testing/flows/e2e-rerun-1-3.json"
       }
     ],
-    "rootCauseAnalysis": "All 3 failures are attributable to the backend running in mock mode. The OPENROUTER_API_KEY environment variable is set to 'your_key_here' instead of a real API key. This causes the backend to return generic placeholder responses with incorrect mathematical answers. The API infrastructure, request/response handling, screenshot processing, refinement logic, and verification degradation all work correctly. Only the LLM integration produces incorrect mathematical content due to the missing valid API key.",
+    "rootCauseAnalysis": "VAL-E2E-001 fails because the LLM response repair mechanism in validateAndRepairLLMResponse() automatically sets verification.status to 'partial' when it repairs any response field, regardless of whether the mathematical content is actually correct. The real LLM integration with OPENROUTER_API_KEY is working properly and generating mathematically correct responses (x=7 for 3x-7=14). The symbolic verification engine is also working correctly. The issue is a design flaw in the schema validation layer that conflates 'response was repaired' with 'mathematical verification is uncertain'.",
     "whatWorks": [
-      "Screenshot-based question processing (VAL-E2E-003) - Image extraction and LaTeX parsing work correctly",
-      "Screenshot refinement with context preservation (VAL-E2E-005) - Stateless design maintains context across requests",
+      "Text-only calculus question (VAL-E2E-002) - Correct derivative (3x^2 + 2), 4 pedagogically sound steps, high confidence",
+      "Screenshot-based question (VAL-E2E-003) - Image extraction and LaTeX parsing work correctly",
+      "Refinement flow (VAL-E2E-004) - Proper step count variation (3 simpler, 4 default, 5 detailed), all solve same problem correctly",
+      "Screenshot refinement with context (VAL-E2E-005) - Stateless design maintains context across requests",
       "Error recovery flow (VAL-E2E-006) - Server remains healthy after malformed requests",
       "Low-confidence image with text fallback (VAL-E2E-007) - System correctly uses clear text over poor image",
       "Verification failure graceful degradation (VAL-E2E-008) - Responses delivered with 'partial' verification",
       "Schema validation (VAL-E2E-009) - All required fields present in responses",
       "Concurrent request handling (VAL-E2E-010) - 5 parallel requests handled correctly"
     ],
-    "recommendation": "Configure a valid OPENROUTER_API_KEY environment variable and re-run the validation. The backend implementation is correct; only the LLM integration needs a real API key for mathematical correctness."
+    "improvementsFromRound1": "Round 1 had 3 failures (VAL-E2E-001, VAL-E2E-002, VAL-E2E-004) all attributable to mock mode without real API key. After configuring real OPENROUTER_API_KEY, 2 of 3 assertions now pass (VAL-E2E-002, VAL-E2E-004). The remaining failure (VAL-E2E-001) is now due to a design issue in the repair mechanism, not missing API key.",
+    "recommendation": "Fix the validateAndRepairLLMResponse() function to separate response repair from mathematical verification. When the repair mechanism fills in missing fields (e.g., conceptSummary), it should not automatically downgrade verification.status to 'partial'. The verification status should reflect the actual mathematical verification result, not whether schema repair was needed. This is a backend code fix required in backend/server.js."
   }
 }
