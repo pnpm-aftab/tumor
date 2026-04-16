@@ -65,21 +65,64 @@ function latexToExpression(latex) {
 }
 
 /**
+ * Normalize solution string to extract variable and value
+ * Handles multiple formats: '7', 'x=7', 'x = 7', 'The answer is 7', '$x=7$', '\\boxed{7}', etc.
+ * @param {string} solution - Solution string from LLM
+ * @param {string} equation - Original equation (to extract variable if needed)
+ * @returns {object|null} - Object with variable and value, or null if parsing fails
+ */
+function normalizeSolution(solution, equation) {
+    try {
+        // Try to match variable=value format first (e.g., "x=7", "x = 7", "x=7.5")
+        const variableMatch = solution.match(/([a-zA-Z])\s*=\s*(-?\d*\.?\d+)/);
+        if (variableMatch) {
+            return {
+                variable: variableMatch[1],
+                value: parseFloat(variableMatch[2])
+            };
+        }
+
+        // Extract just the numeric value if present (handles bare numbers like "7", "-3.14", etc.)
+        const numericMatch = solution.match(/(-?\d+\.?\d*)/);
+        if (numericMatch) {
+            const value = parseFloat(numericMatch[1]);
+
+            // Extract variable from the equation (find the variable on the left side of '=')
+            // Equation format: "3x-7=14" -> variable is 'x'
+            const lhs = equation.split('=')[0].trim();
+            const variableMatch = lhs.match(/([a-zA-Z])/);
+
+            if (variableMatch) {
+                return {
+                    variable: variableMatch[1],
+                    value: value
+                };
+            }
+        }
+
+        return null;
+    } catch (error) {
+        console.error('Solution normalization error:', error);
+        return null;
+    }
+}
+
+/**
  * Verify linear equation solution by substitution
  * @param {string} equation - Equation (e.g., "2x+3=7")
- * @param {string} solution - Solution (e.g., "x=2")
+ * @param {string} solution - Solution (e.g., "x=2", "7", "The answer is 7", etc.)
  * @returns {object} - Verification result
  */
 function verifyLinearEquation(equation, solution) {
     try {
-        // Extract variable and value from solution (e.g., "x=2" -> x=2)
-        const solutionMatch = solution.match(/([a-zA-Z])\s*=\s*(-?\d*\.?\d+)/);
-        if (!solutionMatch) {
+        // Normalize the solution to extract variable and value
+        const normalized = normalizeSolution(solution, equation);
+
+        if (!normalized) {
             return { status: 'partial', notes: ['Could not parse solution format'] };
         }
 
-        const variable = solutionMatch[1];
-        const value = parseFloat(solutionMatch[2]);
+        const { variable, value } = normalized;
 
         // Parse equation
         const lhs = equation.split('=')[0].trim();
@@ -112,22 +155,34 @@ function verifyLinearEquation(equation, solution) {
 /**
  * Verify quadratic equation solution
  * @param {string} equation - Quadratic equation
- * @param {string} solution - Solution (e.g., "x=2,3" or "x=2 or x=3")
+ * @param {string} solution - Solution (e.g., "x=2,3", "x=2 or x=3", "2,3", etc.)
  * @returns {object} - Verification result
  */
 function verifyQuadraticEquation(equation, solution) {
     try {
-        // Extract roots from solution text
-        const solutionRoots = solution.match(/-?\d+\.?\d*/g) || [];
-        const numericSolutions = solutionRoots.map(r => parseFloat(r));
+        // Normalize the solution to handle multiple formats:
+        // - "x=2,3" or "x=2 or x=3" (with variable)
+        // - "2,3" or "2 and 3" (bare numbers)
+        // - "x=2" (single root)
+        // - LaTeX wrapped: "$x=2$" or "\boxed{2}"
+        // - Sentence prefixes: "The answers are 2 and 3"
 
-        if (numericSolutions.length === 0) {
+        // First, try to extract all numeric values from the solution
+        // This regex handles: integers, decimals, negative numbers
+        const solutionRoots = solution.match(/-?\d+\.?\d*/g) || [];
+
+        if (solutionRoots.length === 0) {
             return { status: 'partial', notes: ['Could not extract numeric solutions'] };
         }
 
+        const numericSolutions = solutionRoots.map(r => parseFloat(r));
+
+        // Remove duplicates while preserving order
+        const uniqueSolutions = [...new Set(numericSolutions)];
+
         // Verify each root by substituting back into the equation
         const tolerance = 1e-6;
-        const allRootsValid = numericSolutions.every(root => {
+        const allRootsValid = uniqueSolutions.every(root => {
             try {
                 // Substitute the root into the equation and check if it equals 0
                 const equationWithoutAnswer = equation.replace(/=.*$/, '=0');
@@ -142,7 +197,7 @@ function verifyQuadraticEquation(equation, solution) {
         if (allRootsValid) {
             return {
                 status: 'passed',
-                notes: [`All roots verified: ${numericSolutions.join(', ')}`]
+                notes: [`All roots verified: ${uniqueSolutions.join(', ')}`]
             };
         } else {
             return {
@@ -429,5 +484,6 @@ module.exports = {
     verifyDerivative,
     verifyIntegral,
     latexToExpression,
-    determineProblemType
+    determineProblemType,
+    normalizeSolution
 };
