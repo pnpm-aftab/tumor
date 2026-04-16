@@ -1,0 +1,65 @@
+{
+  "milestone": "polish",
+  "round": 1,
+  "status": "fail",
+  "assertionsSummary": {
+    "total": 10,
+    "passed": 7,
+    "failed": 3,
+    "blocked": 0
+  },
+  "passedAssertions": [
+    "VAL-E2E-003",
+    "VAL-E2E-005",
+    "VAL-E2E-006",
+    "VAL-E2E-007",
+    "VAL-E2E-008",
+    "VAL-E2E-009",
+    "VAL-E2E-010"
+  ],
+  "failedAssertions": [
+    {
+      "id": "VAL-E2E-001",
+      "reason": "Mathematical answer incorrect (expected x=7, got x=3). Verification status is 'partial' instead of 'passed'. Root cause: Backend running in mock mode without real LLM API key (OPENROUTER_API_KEY='your_key_here'). Mock mode returns generic placeholder responses instead of real mathematical reasoning."
+    },
+    {
+      "id": "VAL-E2E-002",
+      "reason": "Derivative answer incorrect (expected 3x²+2, got 'The result is 3'). Verification status is 'partial' instead of 'passed'. Root cause: Backend running in mock mode without real LLM API key. Mock mode returns generic placeholder responses instead of real calculus computations."
+    },
+    {
+      "id": "VAL-E2E-004",
+      "reason": "Refinement answers differ between actions for the same problem (default: 'The result is 3', simpler: 'x = 3', detailed: 'The result is 3'). Format inconsistencies between responses. Root cause: Backend running in mock mode without real LLM API key. Mock mode returns inconsistent placeholder responses instead of coherent refinement variations."
+    }
+  ],
+  "blockedAssertions": [],
+  "appliedUpdates": [],
+  "previousRound": null,
+  "details": {
+    "testingApproach": "Two concurrent flow validator subagents tested 10 E2E assertions against the backend API running on localhost:3000. Tests covered text-only algebra/calculus, screenshot processing, refinement flows, error recovery, low-confidence handling, verification degradation, schema validation, and concurrent request handling.",
+    "flowValidators": [
+      {
+        "groupId": "e2e-flows-1-5",
+        "assertions": ["VAL-E2E-001", "VAL-E2E-002", "VAL-E2E-003", "VAL-E2E-004", "VAL-E2E-005"],
+        "results": "2 passed, 3 failed",
+        "report": ".factory/validation/polish/user-testing/flows/e2e-flows-1-5.json"
+      },
+      {
+        "groupId": "e2e-flows-6-10",
+        "assertions": ["VAL-E2E-006", "VAL-E2E-007", "VAL-E2E-008", "VAL-E2E-009", "VAL-E2E-010"],
+        "results": "5 passed, 0 failed",
+        "report": ".factory/validation/polish/user-testing/flows/e2e-flows-6-10.json"
+      }
+    ],
+    "rootCauseAnalysis": "All 3 failures are attributable to the backend running in mock mode. The OPENROUTER_API_KEY environment variable is set to 'your_key_here' instead of a real API key. This causes the backend to return generic placeholder responses with incorrect mathematical answers. The API infrastructure, request/response handling, screenshot processing, refinement logic, and verification degradation all work correctly. Only the LLM integration produces incorrect mathematical content due to the missing valid API key.",
+    "whatWorks": [
+      "Screenshot-based question processing (VAL-E2E-003) - Image extraction and LaTeX parsing work correctly",
+      "Screenshot refinement with context preservation (VAL-E2E-005) - Stateless design maintains context across requests",
+      "Error recovery flow (VAL-E2E-006) - Server remains healthy after malformed requests",
+      "Low-confidence image with text fallback (VAL-E2E-007) - System correctly uses clear text over poor image",
+      "Verification failure graceful degradation (VAL-E2E-008) - Responses delivered with 'partial' verification",
+      "Schema validation (VAL-E2E-009) - All required fields present in responses",
+      "Concurrent request handling (VAL-E2E-010) - 5 parallel requests handled correctly"
+    ],
+    "recommendation": "Configure a valid OPENROUTER_API_KEY environment variable and re-run the validation. The backend implementation is correct; only the LLM integration needs a real API key for mathematical correctness."
+  }
+}

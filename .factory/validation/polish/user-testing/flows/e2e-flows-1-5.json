@@ -1,0 +1,288 @@
+{
+  "groupId": "e2e-flows-1-5",
+  "testedAt": "2026-04-16T04:16:24.169Z",
+  "isolation": {
+    "backendApiUrl": "http://localhost:3000",
+    "workingDirectory": "/Users/aftab/Documents/bob-the/codex-proj/backend"
+  },
+  "toolsUsed": [
+    "Node.js test runner",
+    "HTTP requests",
+    "curl"
+  ],
+  "assertions": [
+    {
+      "id": "VAL-E2E-001",
+      "title": "Text-only algebra question end-to-end",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Send request with \"solve 3x - 7 = 14\"",
+          "expected": "200 response",
+          "observed": "Status 200"
+        },
+        {
+          "action": "Check finalAnswer contains \"7\"",
+          "expected": "Answer includes 7",
+          "observed": "Answer missing or incorrect"
+        },
+        {
+          "action": "Check verification.status",
+          "expected": "passed",
+          "observed": "partial"
+        },
+        {
+          "action": "Check steps array",
+          "expected": "Non-empty with logical steps",
+          "observed": "2 steps found"
+        }
+      ],
+      "evidence": {
+        "response": {
+          "problemSummary": "Solving: solve 3x - 7 = 14",
+          "parsedExpressionLatex": "solve 3x - 7 = 14",
+          "steps": [
+            {
+              "title": "Identify the goal",
+              "explanationMarkdown": "We need to isolate the variable or simplify the expression provided. This is a mock response for testing purposes.",
+              "latex": null,
+              "stepType": "setup"
+            },
+            {
+              "title": "Apply operations",
+              "explanationMarkdown": "Standard algebraic rules apply here. We would typically isolate the variable by performing inverse operations on both sides of the equation.",
+              "latex": "x + 2 = 5 \\implies x = 3",
+              "stepType": "computation"
+            }
+          ],
+          "finalAnswer": "The result is 3.",
+          "conceptSummary": "Basic Algebra",
+          "confidence": "high",
+          "verification": {
+            "status": "partial",
+            "notes": [
+              "Could not parse solution format"
+            ]
+          }
+        },
+        "answerIncludes7": false,
+        "verificationPassed": false,
+        "stepsCount": 2,
+        "files": [
+          "/Users/aftab/.factory/missions/92030428-0348-4066-af5b-1aaf02b25ba7/evidence/polish/e2e-flows-1-5/VAL-E2E-001-response.json"
+        ]
+      },
+      "notes": "Answer does not contain expected value 7"
+    },
+    {
+      "id": "VAL-E2E-002",
+      "title": "Text-only calculus question end-to-end",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Send request with \"find the derivative of x^3 + 2x\"",
+          "expected": "200 response",
+          "observed": "Status 200"
+        },
+        {
+          "action": "Check finalAnswer for derivative",
+          "expected": "Contains 3x^2 + 2 or equivalent",
+          "observed": "The result is 3."
+        },
+        {
+          "action": "Check verification",
+          "expected": "passed or partial",
+          "observed": "partial"
+        }
+      ],
+      "evidence": {
+        "response": {
+          "problemSummary": "Solving: find the derivative of x^3 + 2x",
+          "parsedExpressionLatex": "x+2=5",
+          "steps": [
+            {
+              "title": "Identify the goal",
+              "explanationMarkdown": "We need to isolate the variable or simplify the expression provided. This is a mock response for testing purposes.",
+              "latex": null,
+              "stepType": "setup"
+            },
+            {
+              "title": "Apply operations",
+              "explanationMarkdown": "Standard algebraic rules apply here. We would typically isolate the variable by performing inverse operations on both sides of the equation.",
+              "latex": "x + 2 = 5 \\implies x = 3",
+              "stepType": "computation"
+            }
+          ],
+          "finalAnswer": "The result is 3.",
+          "conceptSummary": "Basic Algebra",
+          "confidence": "high",
+          "verification": {
+            "status": "partial",
+            "notes": [
+              "Could not verify derivative: Invalid left hand side of assignment operator = (char 4)"
+            ]
+          }
+        },
+        "hasCorrectDerivative": false,
+        "verificationStatus": "partial",
+        "files": [
+          "/Users/aftab/.factory/missions/92030428-0348-4066-af5b-1aaf02b25ba7/evidence/polish/e2e-flows-1-5/VAL-E2E-002-response.json"
+        ]
+      },
+      "notes": "Derivative may be incorrect or in unexpected format"
+    },
+    {
+      "id": "VAL-E2E-003",
+      "title": "Screenshot-based question end-to-end",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Send request with screenshot and \"solve this\"",
+          "expected": "200 response",
+          "observed": "Status 200"
+        },
+        {
+          "action": "Check image was processed",
+          "expected": "parsedExpressionLatex present",
+          "observed": "Expression extracted"
+        },
+        {
+          "action": "Check final answer",
+          "expected": "Non-empty answer",
+          "observed": "Answer provided"
+        },
+        {
+          "action": "Check verification",
+          "expected": "Verification status present",
+          "observed": "partial"
+        }
+      ],
+      "evidence": {
+        "response": {
+          "problemSummary": "Extracted from screenshot: 2x + 3 = 7",
+          "parsedExpressionLatex": "2x + 3 = 7",
+          "steps": [
+            {
+              "title": "Identify the goal",
+              "explanationMarkdown": "We need to isolate the variable or simplify the expression provided. This is a mock response for testing purposes.",
+              "latex": null,
+              "stepType": "setup"
+            },
+            {
+              "title": "Apply operations",
+              "explanationMarkdown": "Standard algebraic rules apply here. We would typically isolate the variable by performing inverse operations on both sides of the equation.",
+              "latex": "x + 2 = 5 \\implies x = 3",
+              "stepType": "computation"
+            }
+          ],
+          "finalAnswer": "The result is 3.",
+          "conceptSummary": "Basic Algebra",
+          "confidence": "medium",
+          "verification": {
+            "status": "partial",
+            "notes": [
+              "Could not parse solution format"
+            ]
+          }
+        },
+        "hasParsedExpression": true,
+        "parsedExpression": "2x + 3 = 7",
+        "confidence": "medium",
+        "files": [
+          "/Users/aftab/.factory/missions/92030428-0348-4066-af5b-1aaf02b25ba7/evidence/polish/e2e-flows-1-5/VAL-E2E-003-response.json"
+        ]
+      },
+      "notes": "Image processed with confidence: medium"
+    },
+    {
+      "id": "VAL-E2E-004",
+      "title": "Refinement flow end-to-end (stateless)",
+      "status": "fail",
+      "steps": [
+        {
+          "action": "Send default request",
+          "expected": "200 with steps",
+          "observed": "Status 200, 2 steps"
+        },
+        {
+          "action": "Send simpler request",
+          "expected": "200 with fewer/simpler steps",
+          "observed": "Status 200, 1 steps"
+        },
+        {
+          "action": "Send detailed request",
+          "expected": "200 with more steps",
+          "observed": "Status 200, 4 steps"
+        },
+        {
+          "action": "Check all solve same problem",
+          "expected": "Same final answer",
+          "observed": "Answers differ"
+        }
+      ],
+      "evidence": {
+        "defaultSteps": 2,
+        "simplerSteps": 1,
+        "detailedSteps": 4,
+        "defaultAnswer": "The result is 3.",
+        "simplerAnswer": "x = 3",
+        "detailedAnswer": "The result is 3.",
+        "files": [
+          "/Users/aftab/.factory/missions/92030428-0348-4066-af5b-1aaf02b25ba7/evidence/polish/e2e-flows-1-5/VAL-E2E-004-default-response.json",
+          "/Users/aftab/.factory/missions/92030428-0348-4066-af5b-1aaf02b25ba7/evidence/polish/e2e-flows-1-5/VAL-E2E-004-simpler-response.json",
+          "/Users/aftab/.factory/missions/92030428-0348-4066-af5b-1aaf02b25ba7/evidence/polish/e2e-flows-1-5/VAL-E2E-004-detailed-response.json"
+        ]
+      },
+      "notes": "Step counts - Default: 2, Simpler: 1, Detailed: 4"
+    },
+    {
+      "id": "VAL-E2E-005",
+      "title": "Screenshot refinement preserves context end-to-end (stateless)",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Send initial request with screenshot",
+          "expected": "200 with parsed expression",
+          "observed": "Status 200, expression: 2x + 3 = 7"
+        },
+        {
+          "action": "Send simpler request with same screenshot",
+          "expected": "200 with same expression",
+          "observed": "Status 200, expression: 2x + 3 = 7"
+        },
+        {
+          "action": "Check screenshot context preserved",
+          "expected": "Both responses address screenshot",
+          "observed": "Both have answers"
+        },
+        {
+          "action": "Check simpler has fewer steps",
+          "expected": "Simpler ≤ initial steps",
+          "observed": "1 ≤ 2"
+        }
+      ],
+      "evidence": {
+        "initialParsedExpression": "2x + 3 = 7",
+        "simplerParsedExpression": "2x + 3 = 7",
+        "initialSteps": 2,
+        "simplerSteps": 1,
+        "expressionsMatch": true,
+        "files": [
+          "/Users/aftab/.factory/missions/92030428-0348-4066-af5b-1aaf02b25ba7/evidence/polish/e2e-flows-1-5/VAL-E2E-005-initial-response.json",
+          "/Users/aftab/.factory/missions/92030428-0348-4066-af5b-1aaf02b25ba7/evidence/polish/e2e-flows-1-5/VAL-E2E-005-simpler-response.json"
+        ]
+      },
+      "notes": "Screenshot context preserved - both responses extracted: 2x + 3 = 7"
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Backend is running in mock mode (OPENROUTER_API_KEY not configured). All responses use mock data with generic explanations and incorrect mathematical answers. This affects assertions VAL-E2E-001, VAL-E2E-002, and VAL-E2E-004 where actual mathematical correctness is required.",
+      "resolved": false,
+      "resolution": "Configure OPENROUTER_API_KEY environment variable with a valid OpenRouter API key to enable real LLM responses.",
+      "affectedAssertions": ["VAL-E2E-001", "VAL-E2E-002", "VAL-E2E-004"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 5 assertions: 2 passed, 3 failed, 0 blocked. Note: Backend running in mock mode without real LLM API key, which causes mathematical correctness failures in VAL-E2E-001, VAL-E2E-002, and VAL-E2E-004. The API structure and flow logic work correctly (VAL-E2E-003, VAL-E2E-005 passed), but mathematical answers are incorrect due to mock responses."
+}
