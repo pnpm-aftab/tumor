@@ -1,6 +1,6 @@
 {
   "milestone": "polish",
-  "round": 2,
+  "round": 3,
   "status": "fail",
   "assertionsSummary": {
     "total": 10,
@@ -22,35 +22,33 @@
   "failedAssertions": [
     {
       "id": "VAL-E2E-001",
-      "reason": "Verification status is 'partial' instead of required 'passed'. The LLM response repair mechanism in validateAndRepairLLMResponse() automatically sets verification.status to 'partial' when it repairs a response, even when the repaired response is mathematically correct. The actual mathematical answer is correct (x=7), steps are pedagogically sound (4 steps with logical flow), but the verification status requirement is not met due to the repair mechanism overriding the actual mathematical verification."
+      "reason": "Verification status is 'partial' instead of required 'passed'. The LLM is hallucinating a verification field in its response (even though not prompted to do so). The validateAndRepairLLMResponse() function copies this LLM-provided verification field instead of always removing it, which prevents verifyMath() from running. The mathematical answer is correct (x=7) and steps are pedagogically sound (4 logical steps), but the verification.status requirement is not met. Required fix: Always remove/ignore the verification field from LLM responses in validateAndRepairLLMResponse() so that verifyMath() always generates the verification result fresh using symbolic math computation."
     }
   ],
   "blockedAssertions": [],
   "appliedUpdates": [],
-  "previousRound": ".factory/validation/polish/user-testing/synthesis.json",
+  "previousRound": ".factory/validation/polish/user-testing/synthesis.json (Round 2)",
   "details": {
-    "testingApproach": "Re-run of Round 1 failed assertions after fix implementation. One flow validator subagent tested 3 E2E assertions against the backend API running on localhost:3000 with real OPENROUTER_API_KEY. Tests covered text-only algebra, text-only calculus, and refinement flows.",
+    "testingApproach": "Re-run of Round 2 failed assertion after fix implementation. One flow validator subagent tested VAL-E2E-001 against the backend API running on localhost:3000 with real OPENROUTER_API_KEY. The test covered the text-only algebra question flow (3x - 7 = 14).",
     "flowValidators": [
       {
-        "groupId": "e2e-rerun-1-3",
-        "assertions": ["VAL-E2E-001", "VAL-E2E-002", "VAL-E2E-004"],
-        "results": "2 passed, 1 failed",
-        "report": ".factory/validation/polish/user-testing/flows/e2e-rerun-1-3.json"
+        "groupId": "val-e2e-001-round3",
+        "assertions": ["VAL-E2E-001"],
+        "results": "0 passed, 1 failed",
+        "report": ".factory/validation/polish/user-testing/flows/val-e2e-001-round3.json"
       }
     ],
-    "rootCauseAnalysis": "VAL-E2E-001 fails because the LLM response repair mechanism in validateAndRepairLLMResponse() automatically sets verification.status to 'partial' when it repairs any response field, regardless of whether the mathematical content is actually correct. The real LLM integration with OPENROUTER_API_KEY is working properly and generating mathematically correct responses (x=7 for 3x-7=14). The symbolic verification engine is also working correctly. The issue is a design flaw in the schema validation layer that conflates 'response was repaired' with 'mathematical verification is uncertain'.",
+    "rootCauseAnalysis": "VAL-E2E-001 fails because the LLM is hallucinating and including a verification field in its JSON response with {status: 'partial', notes: ['Could not parse solution format']}, even though it's not prompted to include this field. The fix-verification-repair-override feature from Round 2 was incomplete. The current implementation of validateAndRepairLLMResponse() correctly handles the case where llmResponse.verification is undefined (doesn't copy it, allowing verifyMath() to run), but it DOES copy the verification field when the LLM provides one (line 66: verification: llmResponse.verification ? { ...llmResponse.verification } : undefined). This prevents verifyMath() from running because the condition 'if (!responseData.verification)' at line 313 evaluates to false. The fix needs to ALWAYS remove/ignore any verification field from the LLM response so that verifyMath() always generates it fresh using symbolic math computation.",
     "whatWorks": [
-      "Text-only calculus question (VAL-E2E-002) - Correct derivative (3x^2 + 2), 4 pedagogically sound steps, high confidence",
-      "Screenshot-based question (VAL-E2E-003) - Image extraction and LaTeX parsing work correctly",
-      "Refinement flow (VAL-E2E-004) - Proper step count variation (3 simpler, 4 default, 5 detailed), all solve same problem correctly",
-      "Screenshot refinement with context (VAL-E2E-005) - Stateless design maintains context across requests",
-      "Error recovery flow (VAL-E2E-006) - Server remains healthy after malformed requests",
-      "Low-confidence image with text fallback (VAL-E2E-007) - System correctly uses clear text over poor image",
-      "Verification failure graceful degradation (VAL-E2E-008) - Responses delivered with 'partial' verification",
-      "Schema validation (VAL-E2E-009) - All required fields present in responses",
-      "Concurrent request handling (VAL-E2E-010) - 5 parallel requests handled correctly"
+      "Backend API is healthy and responding correctly",
+      "Text-only algebra question returns mathematically correct answer (x=7 for 3x-7=14)",
+      "Steps array is well-structured with 4 logical steps (setup → computation → verification)",
+      "Response JSON has correct shape with all required fields",
+      "LLM integration is working properly with OpenRouter API",
+      "Symbolic verification engine (verifyMath) is implemented and can compute correct verification",
+      "The issue is in the schema validation layer that incorrectly preserves LLM-hallucinated verification fields"
     ],
-    "improvementsFromRound1": "Round 1 had 3 failures (VAL-E2E-001, VAL-E2E-002, VAL-E2E-004) all attributable to mock mode without real API key. After configuring real OPENROUTER_API_KEY, 2 of 3 assertions now pass (VAL-E2E-002, VAL-E2E-004). The remaining failure (VAL-E2E-001) is now due to a design issue in the repair mechanism, not missing API key.",
-    "recommendation": "Fix the validateAndRepairLLMResponse() function to separate response repair from mathematical verification. When the repair mechanism fills in missing fields (e.g., conceptSummary), it should not automatically downgrade verification.status to 'partial'. The verification status should reflect the actual mathematical verification result, not whether schema repair was needed. This is a backend code fix required in backend/server.js."
+    "improvementsFromRound2": "Round 2 identified that the LLM response repair mechanism was setting verification.status to 'partial' when repairing responses. The fix-verification-repair-override feature was implemented to address this by setting verification to undefined when the LLM doesn't provide a verification field. However, Round 3 testing revealed that the fix is incomplete - it also needs to REMOVE any verification field that the LLM might hallucinate, not just preserve undefined values.",
+    "recommendation": "Update validateAndRepairLLMResponse() in backend/server.js to ALWAYS remove/ignore the verification field from LLM responses, regardless of whether the LLM provides one. This ensures verifyMath() always generates a fresh verification result using symbolic math computation. The fix should change line 66 from 'verification: llmResponse.verification ? { ...llmResponse.verification } : undefined' to 'verification: undefined' (or simply omit the verification field entirely from the repaired response). This is a backend code fix required in backend/server.js."
   }
 }
