@@ -41,13 +41,13 @@ function validateAndRepairLLMResponse(llmResponse, usedDefaults = false) {
             const repaired = {
                 problemSummary: llmResponse.problemSummary || "Math problem solution",
                 parsedExpressionLatex: llmResponse.parsedExpressionLatex || null,
-                steps: llmResponse.steps && llmResponse.steps.length > 0 
+                steps: llmResponse.steps && llmResponse.steps.length > 0
                     ? llmResponse.steps.map(step => ({
                         title: step.title || "Solution Step",
                         explanationMarkdown: step.explanationMarkdown || "This step solves part of the problem.",
                         latex: step.latex || null,
-                        stepType: ['setup', 'computation', 'simplification', 'verification'].includes(step.stepType) 
-                            ? step.stepType 
+                        stepType: ['setup', 'computation', 'simplification', 'verification'].includes(step.stepType)
+                            ? step.stepType
                             : 'computation'
                     }))
                     : [
@@ -61,7 +61,9 @@ function validateAndRepairLLMResponse(llmResponse, usedDefaults = false) {
                 finalAnswer: llmResponse.finalAnswer || "See solution steps above",
                 conceptSummary: llmResponse.conceptSummary || "Mathematical problem solving",
                 confidence: usedDefaults ? 'low' : (llmResponse.confidence || 'low'),
-                verification: llmResponse.verification || { status: 'partial', notes: ['Response was repaired with defaults'] }
+                // Only set verification if LLM explicitly returned one that needs repair
+                // Otherwise leave it undefined so the main handler's verifyMath() can run
+                verification: llmResponse.verification ? { ...llmResponse.verification } : undefined
             };
             
             // Validate the repaired response
