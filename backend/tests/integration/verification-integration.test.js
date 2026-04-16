@@ -4,48 +4,27 @@ const http = require('http');
 
 describe('Symbolic Verification Integration Tests', () => {
     let server;
+    let testServer;
     const port = 3000;
 
-    before((done) => {
+    before(async () => {
         // Start the server
         server = require('../../server');
-        const testServer = server.listen(port, () => {
-            console.log('Test server listening at http://localhost:%d', port);
-            done();
-        });
-
-        // Handle server errors
-        testServer.on('error', (err) => {
-            if (err.code === 'EADDRINUSE') {
-                console.log('Port %d already in use, trying to kill existing process...', port);
-                const { exec } = require('child_process');
-                exec(`lsof -ti :${port} | xargs kill -9`, (error) => {
-                    if (error) {
-                        console.error('Error killing existing process:', error);
-                    }
-                    // Retry starting server
-                    setTimeout(() => {
-                        testServer.listen(port, () => {
-                            console.log('Test server listening at http://localhost:%d', port);
-                            done();
-                        });
-                    }, 1000);
-                });
-            } else {
-                console.error('Server error:', err);
-                done(err);
-            }
-        });
+        testServer = server.listen(port);
+        console.log('Test server listening at http://localhost:%d', port);
+        
+        // Wait a bit for server to be ready
+        await new Promise(resolve => setTimeout(resolve, 100));
     });
 
-    after((done) => {
-        if (server) {
-            server.close(() => {
-                console.log('Test server closed');
-                done();
+    after(async () => {
+        if (testServer) {
+            await new Promise((resolve) => {
+                testServer.close(() => {
+                    console.log('Test server closed');
+                    resolve();
+                });
             });
-        } else {
-            done();
         }
     });
 
