@@ -1,0 +1,117 @@
+{
+  "groupId": "calculus-verification",
+  "testedAt": "2026-04-16T03:50:00.000Z",
+  "isolation": {
+    "backendAPI": "http://localhost:3000",
+    "workingDirectory": "/Users/aftab/Documents/bob-the/codex-proj/backend",
+    "statelessProtocol": "HTTP",
+    "testScripts": "tests/verification/*.test.js"
+  },
+  "toolsUsed": ["node --test", "curl"],
+  "assertions": [
+    {
+      "id": "VAL-SYM-004",
+      "title": "Basic derivative verification works",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Test derivative verification: x³ + 2x → 3x² + 2",
+          "expected": "Verification computes derivative symbolically and compares",
+          "observed": "4/4 unit tests passed, uses nerdamer for symbolic differentiation, verification confirms correct result"
+        },
+        {
+          "action": "Test derivative via HTTP API",
+          "expected": "API returns verification object with derivative check",
+          "observed": "HTTP 200 response with verification.notes showing derivative computation"
+        }
+      ],
+      "evidence": {
+        "testResults": "4/4 unit tests passed for derivative verification",
+        "symbolicComputation": "Uses nerdamer for symbolic differentiation",
+        "httpTest": "API endpoint returned 200 with verification object"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-SYM-005",
+      "title": "Basic integral verification works",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Test integral verification: 2x → x² + C",
+          "expected": "Verification computes antiderivative symbolically and compares",
+          "observed": "4/4 unit tests passed, uses mathjs for symbolic integration verification"
+        },
+        {
+          "action": "Test integral via HTTP API",
+          "expected": "API returns verification object with integral check",
+          "observed": "HTTP 200 response with verification.notes showing integral computation"
+        }
+      ],
+      "evidence": {
+        "testResults": "4/4 unit tests passed for integral verification",
+        "symbolicComputation": "Uses mathjs for symbolic integration verification"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-SYM-006",
+      "title": "Verification gracefully degrades for unsupported problems",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Test out-of-scope problem: prove sqrt(2) is irrational",
+          "expected": "Returns 'partial' status without crashing",
+          "observed": "3/3 unit tests passed, verification returns 'partial' with explanatory notes"
+        },
+        {
+          "action": "Test differential equation: y' = y",
+          "expected": "Graceful degradation for advanced problems",
+          "observed": "Tests passed, no crashes, returns 'partial' status"
+        },
+        {
+          "action": "Test via HTTP API with out-of-scope question",
+          "expected": "Response delivered with degraded verification",
+          "observed": "HTTP 200 with verification.status: 'partial', response not blocked"
+        }
+      ],
+      "evidence": {
+        "testResults": "3/3 unit tests passed for graceful degradation",
+        "apiTest": "HTTP 200 with verification.status: 'partial', no crash",
+        "gracefulHandling": "No unhandled exceptions, verification never blocks response delivery"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-SYM-008",
+      "title": "Verification handles malformed LaTeX from LLM",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Test completely invalid LaTeX: !!!###%%%",
+          "expected": "Returns 'partial' status without throwing exception",
+          "observed": "4/4 unit tests passed, 39/39 edge case tests passed, no unhandled exceptions"
+        },
+        {
+          "action": "Test unbalanced braces: {x^2",
+          "expected": "Graceful handling of syntax errors",
+          "observed": "Tests passed, returns 'partial' with parse failure notes"
+        },
+        {
+          "action": "Test unknown LaTeX commands",
+          "expected": "No crash on unrecognized commands",
+          "observed": "All edge case tests passed, graceful degradation confirmed"
+        }
+      ],
+      "evidence": {
+        "testResults": "4/4 unit tests + 39/39 edge case tests passed",
+        "totalTests": "76 total tests passed (37 verification + 39 edge cases)",
+        "errorHandling": "No unhandled exceptions, all malformed LaTeX handled gracefully"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [],
+  "blockers": [],
+  "summary": "Tested 4 assertions: 4 passed, 0 failed, 0 blocked. All calculus verification and edge case tests passed successfully. The verification system correctly:\n1. Computes and verifies derivatives using symbolic differentiation (nerdamer)\n2. Computes and verifies integrals using symbolic integration (mathjs)\n3. Gracefully degrades for out-of-scope problems with 'partial' status\n4. Handles malformed LaTeX gracefully without crashing\n\nAll 76 unit tests passed (37 verification tests + 39 edge case tests). The verification system is robust with proper error handling, timeout protection, and graceful degradation. No crashes or unhandled exceptions occurred across all test scenarios."
+}
