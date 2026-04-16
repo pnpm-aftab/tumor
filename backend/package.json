@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test tests/**/*.test.js"
+    "test": "for test in tests/**/*.test.js; do echo \"Running $test...\"; node --test \"$test\" || exit 1; done"
   },
   "keywords": [],
   "author": "",
