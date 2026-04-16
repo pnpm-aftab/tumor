@@ -5,6 +5,7 @@ const axios = require('axios');
 const { evaluate } = require('mathjs');
 const OpenAI = require('openai');
 const { z } = require('zod');
+const { verifyMath } = require('./verification');
 require('dotenv').config();
 
 // Zod schema for LLM response validation
@@ -270,8 +271,10 @@ app.post('/api/tutor', validateTutorRequest, async (req, res) => {
 
         // Run symbolic verification if possible and if not already present
         if (!responseData.verification) {
-            const verification = verifyMath(responseData);
-            responseData.verification = verification;
+            const verification = await verifyMath(responseData);
+            if (verification) {
+                responseData.verification = verification;
+            }
         }
 
         res.json(responseData);
@@ -288,17 +291,6 @@ app.options('/api/tutor', (req, res) => {
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.status(200).end();
 });
-
-function verifyMath(response) {
-    try {
-        if (response.parsedExpressionLatex) {
-            return { status: "passed", notes: ["Symbolic check passed for basic consistency."] };
-        }
-    } catch (e) {
-        return { status: "partial", notes: ["Could not verify symbolically."] };
-    }
-    return { status: "partial" };
-}
 
 function generateMockResponse(question, action, hasImage) {
     let steps = [
