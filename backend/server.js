@@ -7,6 +7,89 @@ const OpenAI = require('openai');
 const { z } = require('zod');
 require('dotenv').config();
 
+// Zod schema for LLM response validation
+const TutoringResultSchema = z.object({
+    problemSummary: z.string().min(1, "problemSummary cannot be empty"),
+    parsedExpressionLatex: z.string().nullable(),
+    steps: z.array(z.object({
+        title: z.string().min(1, "step title cannot be empty"),
+        explanationMarkdown: z.string().min(20, "step explanation must be at least 20 characters"),
+        latex: z.string().nullable(),
+        stepType: z.enum(['setup', 'computation', 'simplification', 'verification'])
+    })).min(1, "steps array must have at least one element"),
+    finalAnswer: z.string().min(1, "finalAnswer cannot be empty"),
+    conceptSummary: z.string().min(1, "conceptSummary cannot be empty"),
+    confidence: z.enum(['low', 'medium', 'high']),
+    verification: z.object({
+        status: z.enum(['passed', 'partial', 'failed']),
+        notes: z.array(z.string()).optional()
+    }).optional()
+});
+
+// Function to validate and repair LLM response
+function validateAndRepairLLMResponse(llmResponse, usedDefaults = false) {
+    try {
+        // Try to parse the response with the schema
+        const validated = TutoringResultSchema.parse(llmResponse);
+        return validated;
+    } catch (error) {
+        if (error.name === 'ZodError') {
+            console.error('LLM response validation failed, attempting repair:', error.errors);
+            
+            // Repair the response with defaults
+            const repaired = {
+                problemSummary: llmResponse.problemSummary || "Math problem solution",
+                parsedExpressionLatex: llmResponse.parsedExpressionLatex || null,
+                steps: llmResponse.steps && llmResponse.steps.length > 0 
+                    ? llmResponse.steps.map(step => ({
+                        title: step.title || "Solution Step",
+                        explanationMarkdown: step.explanationMarkdown || "This step solves part of the problem.",
+                        latex: step.latex || null,
+                        stepType: ['setup', 'computation', 'simplification', 'verification'].includes(step.stepType) 
+                            ? step.stepType 
+                            : 'computation'
+                    }))
+                    : [
+                        {
+                            title: "Solution Approach",
+                            explanationMarkdown: "This problem requires applying mathematical principles to find the solution. The steps below show the detailed approach.",
+                            latex: null,
+                            stepType: "setup"
+                        }
+                    ],
+                finalAnswer: llmResponse.finalAnswer || "See solution steps above",
+                conceptSummary: llmResponse.conceptSummary || "Mathematical problem solving",
+                confidence: usedDefaults ? 'low' : (llmResponse.confidence || 'low'),
+                verification: llmResponse.verification || { status: 'partial', notes: ['Response was repaired with defaults'] }
+            };
+            
+            // Validate the repaired response
+            const finalValidation = TutoringResultSchema.safeParse(repaired);
+            if (finalValidation.success) {
+                return finalValidation.data;
+            } else {
+                console.error('Repaired response still failed validation:', finalValidation.error);
+                // Return a safe fallback
+                return {
+                    problemSummary: "Math Problem Solution",
+                    parsedExpressionLatex: null,
+                    steps: [{
+                        title: "Solution",
+                        explanationMarkdown: "This is a fallback response due to LLM output validation issues. Please try again.",
+                        latex: null,
+                        stepType: "setup"
+                    }],
+                    finalAnswer: "Unable to generate answer",
+                    conceptSummary: "Math problem",
+                    confidence: "low",
+                    verification: { status: "partial", notes: ["LLM response could not be validated"] }
+                };
+            }
+        }
+        throw error;
+    }
+}
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -167,9 +250,9 @@ app.post('/api/tutor', validateTutorRequest, async (req, res) => {
                     });
                 }
                 
-                if (llmError.message === 'INVALID_JSON') {
-                    // Fall back to mock response on invalid JSON
-                    console.log('Falling back to mock response due to invalid LLM JSON');
+                if (llmError.message === 'INVALID_JSON' || llmError.message === 'EMPTY_RESPONSE') {
+                    // Fall back to mock response on invalid JSON or empty response
+                    console.log('Falling back to mock response due to LLM error');
                     responseData = generateMockResponse(questionText, action, screenshotImage);
                 }
                 
@@ -185,9 +268,11 @@ app.post('/api/tutor', validateTutorRequest, async (req, res) => {
             responseData = generateMockResponse(questionText, action, screenshotImage);
         }
 
-        // Run symbolic verification if possible
-        const verification = verifyMath(responseData);
-        responseData.verification = verification;
+        // Run symbolic verification if possible and if not already present
+        if (!responseData.verification) {
+            const verification = verifyMath(responseData);
+            responseData.verification = verification;
+        }
 
         res.json(responseData);
     } catch (error) {
@@ -261,7 +346,7 @@ function generateMockResponse(question, action, hasImage) {
         parsedExpression = "2x + 3 = 7"; // Simulate extraction from image
     }
 
-    return {
+    const mockResponse = {
         problemSummary: `Solving: ${question}`,
         parsedExpressionLatex: parsedExpression,
         steps: steps,
@@ -269,6 +354,9 @@ function generateMockResponse(question, action, hasImage) {
         conceptSummary: "Basic Algebra",
         confidence: hasImage ? "medium" : "high" // Lower confidence when extracting from images
     };
+
+    // Validate the mock response
+    return validateAndRepairLLMResponse(mockResponse);
 }
 
 async function callLLM(text, image, action) {
@@ -398,7 +486,9 @@ Remember: Respond with ONLY the JSON object. No additional text.`;
             throw new Error('INVALID_JSON');
         }
 
-        return parsed;
+        // Validate and repair the response
+        const validated = validateAndRepairLLMResponse(parsed);
+        return validated;
     } catch (error) {
         // Handle specific error types
         if (error.message === 'MISSING_API_KEY') {
