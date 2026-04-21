@@ -1,6 +1,6 @@
-# macOS Math Tutor
+# tumor
 
-A menu bar macOS math tutor with a floating session panel and a Node.js backend for solving, explaining, and verifying algebra/calculus work.
+A menu bar macOS math app with a floating session panel and a Node.js backend for solving, explaining, and verifying algebra/calculus work.
 
 ## Current Status
 
@@ -49,8 +49,8 @@ Current UX caveats:
 
 Key files:
 
-- `client/MathTutorApp.swift` - menu bar app entry point
-- `client/MathTutorAppDelegate.swift` - app lifecycle and session startup
+- `client/TumorApp.swift` - menu bar app entry point
+- `client/TumorAppDelegate.swift` - app lifecycle and session startup
 - `client/SessionView.swift` - primary session UI and result page
 - `client/FloatingPanel.swift` - floating panel window behavior
 - `client/MathService.swift` - client networking, history, and refinements
@@ -185,7 +185,7 @@ From the repo root:
 
 ```bash
 swift build
-swift run MathTutor
+swift run tumor
 ```
 
 Requirements:

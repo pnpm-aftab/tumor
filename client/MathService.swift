@@ -118,15 +118,22 @@ class MathService {
                 }
             }
         } else if self.captureMode == .cursorArea {
-            CaptureService.shared.captureAreaAroundCursor { [weak self] img in
-                DispatchQueue.main.async {
-                    guard let self else { return }
-                    self.capturedImage = img
-                    let base64Image = self.base64Png(from: img)
-                    self.screenContextStatus = base64Image == nil
-                        ? "Cursor area context could not be captured."
-                        : "Cursor area context captured."
-                    processSubmission(base64Image, base64Audio)
+            let captureFrame = CursorHighlightManager.shared.currentCaptureFrame
+            CursorHighlightManager.shared.stop()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                CaptureService.shared.captureArea(frame: captureFrame) { [weak self] img in
+                    DispatchQueue.main.async {
+                        guard let self else { return }
+                        self.capturedImage = img
+                        let base64Image = self.base64Png(from: img)
+                        self.screenContextStatus = base64Image == nil
+                            ? "Cursor area context could not be captured."
+                            : "Cursor area context captured."
+                        processSubmission(base64Image, base64Audio)
+                        if self.captureMode == .cursorArea {
+                            CursorHighlightManager.shared.start()
+                        }
+                    }
                 }
             }
         } else {

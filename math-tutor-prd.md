@@ -1,4 +1,4 @@
-# PRD: macOS Math Tutor With Floating White-Paper Panel
+# PRD: tumor - macOS Math App With Floating White-Paper Panel
 
 ## Overview
 This product is a lightweight macOS desktop tutor for mathematics, inspired by the interaction model of `clicky` but intentionally much simpler. A learner opens the app from the menu bar, asks a math question in text, optionally captures a screen region containing the problem, and receives a structured step-by-step explanation in a floating white-paper panel.

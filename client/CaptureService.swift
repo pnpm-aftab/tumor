@@ -33,44 +33,64 @@ class CaptureService {
         }
     }
 
-    func captureAreaAroundCursor(width: CGFloat = 800, height: CGFloat = 800, completion: @escaping (NSImage?) -> Void) {
-        // Hide the highlight window so it doesn't appear in the screenshot
-        CursorHighlightManager.shared.stop()
-        
-        // Brief delay to allow the window to disappear from the screen buffer
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            guard let event = CGEvent(source: nil) else {
+    func captureArea(frame: NSRect, completion: @escaping (NSImage?) -> Void) {
+        // Brief delay to allow any UI (like the highlight window) to disappear from the screen buffer
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            let center = NSPoint(x: frame.midX, y: frame.midY)
+
+            // Find the screen containing the center point for boundary clamping
+            let targetScreen = NSScreen.screens.first(where: { screen in
+                NSMouseInRect(center, screen.frame, false)
+            }) ?? NSScreen.main ?? NSScreen.screens.first!
+
+            let screenFrame = targetScreen.frame
+
+            // Clamp the provided frame to the target screen bounds
+            var rectX = frame.origin.x
+            var rectY = frame.origin.y
+
+            rectX = max(screenFrame.minX, min(rectX, screenFrame.maxX - frame.width))
+            rectY = max(screenFrame.minY, min(rectY, screenFrame.maxY - frame.height))
+
+            let captureWidth = min(frame.width, screenFrame.maxX - rectX)
+            let captureHeight = min(frame.height, screenFrame.maxY - rectY)
+
+            guard captureWidth > 0, captureHeight > 0 else {
+                print("CaptureService: Invalid capture dimensions (\(captureWidth), \(captureHeight))")
                 completion(nil)
                 return
             }
-            
-            let mouseLocation = event.location
-            let rectX = max(0, mouseLocation.x - (width / 2))
-            let rectY = max(0, mouseLocation.y - (height / 2))
-            
+
             let task = Process()
             task.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-            
+
             let tempPath = NSTemporaryDirectory() + "math_cursor_area_\(UUID().uuidString).png"
-            task.arguments = ["-x", "-R\(rectX),\(rectY),\(width),\(height)", tempPath]
-            
+            task.arguments = ["-x", "-R\(rectX),\(rectY),\(captureWidth),\(captureHeight)", tempPath]
+
             do {
                 try task.run()
                 task.waitUntilExit()
+
+                guard task.terminationStatus == 0 else {
+                    print("CaptureService: screencapture exited with status \(task.terminationStatus)")
+                    completion(nil)
+                    return
+                }
             } catch {
                 print("CaptureService: Failed to run screencapture: \(error)")
                 completion(nil)
                 return
             }
-            
+
             if FileManager.default.fileExists(atPath: tempPath) {
-                if let img = NSImage(contentsOfFile: tempPath) {
-                    completion(img)
-                } else {
-                    completion(nil)
-                }
+                let img = NSImage(contentsOfFile: tempPath)
                 try? FileManager.default.removeItem(atPath: tempPath)
+                if img == nil {
+                    print("CaptureService: Failed to load captured image from \(tempPath)")
+                }
+                completion(img)
             } else {
+                print("CaptureService: Screenshot file not found at \(tempPath)")
                 completion(nil)
             }
         }

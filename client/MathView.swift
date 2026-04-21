@@ -1,7 +1,7 @@
 import SwiftUI
 import WebKit
 
-enum MathViewState {
+enum MathViewState: Equatable {
     case loading
     case ready
     case error(String)
@@ -21,7 +21,6 @@ struct MathView: NSViewRepresentable {
         config.userContentController.add(context.coordinator, name: "mathView")
         
         let webView = WKWebView(frame: .zero, configuration: config)
-        webView.isOpaque = false
         webView.navigationDelegate = context.coordinator
         
         if let scrollView = webView.enclosingScrollView {
@@ -41,7 +40,7 @@ struct MathView: NSViewRepresentable {
         let jsPath = cssURL != nil ? "katex.min.js" : "https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"
         
         let escapedLatex = escapedForJSTemplateLiteral(latex)
-        let isDarkMode = NSApp.effectiveAppearance.name.contains(.darkAqua)
+        let isDarkMode = NSApp.effectiveAppearance.name == .darkAqua
         let textColor = isDarkMode ? "#E5E5E5" : "#2E241F"
         
         let html = """
@@ -160,7 +159,7 @@ struct MathView: NSViewRepresentable {
     
     func updateNSView(_ nsView: WKWebView, context: Context) {
         let escapedLatex = escapedForJSTemplateLiteral(latex)
-        let isDarkMode = NSApp.effectiveAppearance.name.contains(.darkAqua)
+        let isDarkMode = NSApp.effectiveAppearance.name == .darkAqua
         let textColor = isDarkMode ? "#E5E5E5" : "#2E241F"
         
         let updateScript = """

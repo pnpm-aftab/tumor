@@ -2,12 +2,12 @@ import SwiftUI
 import AppKit
 
 @main
-struct MathTutorApp: App {
-    @NSApplicationDelegateAdaptor(MathTutorAppDelegate.self) var appDelegate
+struct TumorApp: App {
+    @NSApplicationDelegateAdaptor(TumorAppDelegate.self) var appDelegate
     @State private var mathService = MathService()
 
     var body: some Scene {
-        MenuBarExtra("Math Tutor", systemImage: "brain.head.profile") {
+        MenuBarExtra("tumor", systemImage: "brain.head.profile") {
             Button("New Text Session") {
                 appDelegate.startSession(mode: .text)
             }

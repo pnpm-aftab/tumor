@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-class MathTutorAppDelegate: NSObject, NSApplicationDelegate {
+class TumorAppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyManager: HotkeyManager?
     var mathService = MathService()
     private let panelController = SessionPanelController()

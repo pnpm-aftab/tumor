@@ -2,16 +2,16 @@
 import PackageDescription
 
 let package = Package(
-    name: "MathTutor",
+    name: "tumor",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "MathTutor", targets: ["MathTutor"])
+        .executable(name: "tumor", targets: ["tumor"])
     ],
     targets: [
         .executableTarget(
-            name: "MathTutor",
+            name: "tumor",
             path: "client",
             resources: [
                 .copy("Resources/katex")
