@@ -1,0 +1,145 @@
+{
+  "groupId": "calculus-verification",
+  "testedAt": "2026-04-15T23:55:00.000Z",
+  "isolation": {
+    "backendAPI": "http://localhost:3000",
+    "workingDirectory": "/Users/aftab/Documents/bob-the/codex-proj/backend",
+    "state": "stateless - each HTTP request is independent"
+  },
+  "toolsUsed": ["curl", "node --test"],
+  "assertions": [
+    {
+      "id": "VAL-SYM-004",
+      "title": "Basic derivative verification works",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Run unit test for derivative verification",
+          "expected": "verifyDerivative function correctly computes derivative symbolically",
+          "observed": "Unit test passed: derivative of x^3+2x verified as 3x^2+2 using nerdamer"
+        },
+        {
+          "action": "Test via direct verification function call",
+          "expected": "Returns status='passed' with verification notes",
+          "observed": "Status: passed, Notes: ['Derivative verified: d/dx(x^3 + 2x) = 3 * x ^ 2 + 2']"
+        },
+        {
+          "action": "Test via API endpoint (mock mode)",
+          "expected": "API handles derivative requests without crashing",
+          "observed": "API returns 200 with verification object, though mock response limits testing"
+        }
+      ],
+      "evidence": {
+        "unitTests": "All 4 derivative tests in tests/verification/verification.test.js passed",
+        "directVerification": "test-verification-direct.js showed derivative verification returns 'passed' status",
+        "apiEndpoint": "curl test showed API processes derivative requests gracefully"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-SYM-005",
+      "title": "Basic integral verification works",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Run unit test for integral verification",
+          "expected": "verifyIntegral function correctly computes antiderivative symbolically",
+          "observed": "Unit test passed: integral of 2x verified as x^2+C using mathjs"
+        },
+        {
+          "action": "Test via direct verification function call",
+          "expected": "Returns status='passed' with verification notes",
+          "observed": "Status: passed, Notes: ['Integral verified: derivative of x^2 + C equals 2x']"
+        },
+        {
+          "action": "Test via API endpoint (mock mode)",
+          "expected": "API handles integral requests without crashing",
+          "observed": "API returns 200 with verification object, though mock response limits testing"
+        }
+      ],
+      "evidence": {
+        "unitTests": "All 4 integral tests in tests/verification/verification.test.js passed",
+        "directVerification": "test-verification-direct.js showed integral verification returns 'passed' status",
+        "apiEndpoint": "curl test showed API processes integral requests gracefully"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-SYM-006",
+      "title": "Verification gracefully degrades for unsupported problems",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Test with proof problem (sqrt(2) irrational)",
+          "expected": "Returns 'partial' or 'failed' status without crashing",
+          "observed": "Status: partial, Notes: ['Problem type not in verification scope']"
+        },
+        {
+          "action": "Test with differential equation",
+          "expected": "Returns 'partial' or 'failed' status without crashing",
+          "observed": "Unit test passed: returns 'partial' for differential equations"
+        },
+        {
+          "action": "Test via API endpoint",
+          "expected": "API returns 200 with degraded verification status",
+          "observed": "API returns 200 with verification.status='partial' and explanatory notes"
+        }
+      ],
+      "evidence": {
+        "unitTests": "Out-of-scope tests in verification.test.js passed (proof, word problems, differential equations)",
+        "directVerification": "test-verification-direct.js showed graceful degradation returns 'partial' status",
+        "apiEndpoint": "curl test showed API returns 200 with partial status for unsupported problems"
+      },
+      "issues": null
+    },
+    {
+      "id": "VAL-SYM-008",
+      "title": "Verification handles malformed LaTeX from LLM",
+      "status": "pass",
+      "steps": [
+        {
+          "action": "Test with completely invalid LaTeX (!!!###%%%)",
+          "expected": "Returns 'partial' or 'failed' status without crashing",
+          "observed": "Status: partial, Notes: ['Problem type not in verification scope']"
+        },
+        {
+          "action": "Test with unbalanced braces (\\frac{x}{y)",
+          "expected": "Handles gracefully without throwing unhandled exception",
+          "observed": "Unit test passed: gracefully handles unbalanced braces"
+        },
+        {
+          "action": "Test with unknown LaTeX commands",
+          "expected": "Strips unknown commands and continues",
+          "observed": "Unit test passed: strips unknown commands and processes"
+        },
+        {
+          "action": "Test via API endpoint",
+          "expected": "API returns 200 with partial status and no crash",
+          "observed": "API returns 200 with verification.status='partial' for malformed input"
+        }
+      ],
+      "evidence": {
+        "unitTests": "All 4 malformed LaTeX tests in verification-edge-cases.test.js passed",
+        "edgeCaseTests": "39 total edge case tests passed including malformed LaTeX handling",
+        "apiEndpoint": "curl test showed API handles malformed LaTeX gracefully"
+      },
+      "issues": null
+    }
+  ],
+  "frictions": [
+    {
+      "description": "Server running in mock mode (OPENROUTER_API_KEY not configured) limits end-to-end API testing",
+      "resolved": true,
+      "resolution": "Used direct function calls and unit tests to verify verification logic works correctly",
+      "affectedAssertions": ["VAL-SYM-004", "VAL-SYM-005"]
+    },
+    {
+      "description": "Mock response generates 'x+2=5' for all questions, not calculus-specific expressions",
+      "resolved": true,
+      "resolution": "Verified verification functions work correctly through direct testing and unit tests",
+      "affectedAssertions": ["VAL-SYM-004", "VAL-SYM-005"]
+    }
+  ],
+  "blockers": [],
+  "summary": "Tested 4 assertions: 4 passed. Calculus verification (derivative and integral) works correctly via symbolic computation using nerdamer and mathjs. Graceful degradation for unsupported problems and malformed LaTeX works as expected - returns 'partial' status without crashing. All unit tests pass (37 verification tests + 39 edge case tests)."
+}
