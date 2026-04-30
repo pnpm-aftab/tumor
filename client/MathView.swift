@@ -22,9 +22,12 @@ struct MathView: NSViewRepresentable {
         
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
+        webView.setValue(false, forKey: "drawsBackground")
         
         if let scrollView = webView.enclosingScrollView {
             scrollView.drawsBackground = false
+            scrollView.hasVerticalScroller = false
+            scrollView.hasHorizontalScroller = false
         }
         
         // Asset discovery
@@ -39,7 +42,7 @@ struct MathView: NSViewRepresentable {
         let cssPath = cssURL != nil ? "katex.min.css" : "https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css"
         let jsPath = cssURL != nil ? "katex.min.js" : "https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"
         
-        let escapedLatex = escapedForJSTemplateLiteral(latex)
+        let escapedLatex = escapedForJSTemplateLiteral(normalizedLatex(latex))
         let isDarkMode = NSApp.effectiveAppearance.name == .darkAqua
         let textColor = isDarkMode ? "#E5E5E5" : "#2E241F"
         
@@ -59,25 +62,42 @@ struct MathView: NSViewRepresentable {
                     justify-content: center;
                     align-items: center;
                     margin: 0;
-                    padding: \(inline ? "2px" : "4px");
+                    padding: \(inline ? "1px 2px" : "10px 8px");
                     background-color: transparent;
                     overflow: hidden;
+                    box-sizing: border-box;
+                    min-width: 0;
                 }
                 #math {
-                    font-size: 1.2em;
+                    font-size: \(inline ? "1.02em" : "1.28em");
+                    line-height: 1.25;
                     color: var(--katex-color);
                     text-align: center;
                     width: 100%;
+                    min-width: 0;
+                    overflow-x: auto;
+                    overflow-y: hidden;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .katex {
+                    text-rendering: geometricPrecision;
+                }
+                .katex-html {
+                    padding: 1px 0;
                 }
                 .katex-display {
                     margin: 0 !important;
                     overflow-x: auto;
                     overflow-y: hidden;
                 }
+                .katex-display > .katex {
+                    white-space: normal;
+                }
                 #error {
                     color: #FF6B6B;
                     font-family: monospace;
                     font-size: 0.9em;
+                    overflow-wrap: anywhere;
                 }
             </style>
         </head>
@@ -102,7 +122,10 @@ struct MathView: NSViewRepresentable {
                         katex.render(latex, document.getElementById('math'), {
                             throwOnError: true,
                             displayMode: \(inline ? "false" : "true"),
-                            trust: true
+                            trust: false,
+                            strict: "warn",
+                            maxSize: 12,
+                            maxExpand: 1000
                         });
                         
                         // Report success and height to Swift
@@ -158,7 +181,7 @@ struct MathView: NSViewRepresentable {
     }
     
     func updateNSView(_ nsView: WKWebView, context: Context) {
-        let escapedLatex = escapedForJSTemplateLiteral(latex)
+        let escapedLatex = escapedForJSTemplateLiteral(normalizedLatex(latex))
         let isDarkMode = NSApp.effectiveAppearance.name == .darkAqua
         let textColor = isDarkMode ? "#E5E5E5" : "#2E241F"
         
@@ -189,6 +212,42 @@ struct MathView: NSViewRepresentable {
             .replacingOccurrences(of: "\n", with: "\\n")
             .replacingOccurrences(of: "\r", with: "\\r")
             .replacingOccurrences(of: "\t", with: "\\t")
+    }
+
+    private func normalizedLatex(_ value: String) -> String {
+        var output = value.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if output.hasPrefix("$$"), output.hasSuffix("$$"), output.count >= 4 {
+            output = String(output.dropFirst(2).dropLast(2))
+        } else if output.hasPrefix("$"), output.hasSuffix("$"), output.count >= 2 {
+            output = String(output.dropFirst().dropLast())
+        } else if output.hasPrefix("\\["), output.hasSuffix("\\]"), output.count >= 4 {
+            output = String(output.dropFirst(2).dropLast(2))
+        } else if output.hasPrefix("\\("), output.hasSuffix("\\)"), output.count >= 4 {
+            output = String(output.dropFirst(2).dropLast(2))
+        }
+
+        let prosePrefixes = [
+            #"(?i)^the\s+(?:result|answer|derivative|integral)\s+is\s+"#,
+            #"(?i)^final\s+answer\s*[:\-]\s*"#,
+            #"(?i)^answer\s*[:\-]\s*"#
+        ]
+
+        for pattern in prosePrefixes {
+            if let regex = try? NSRegularExpression(pattern: pattern),
+               let match = regex.firstMatch(in: output, range: NSRange(output.startIndex..., in: output)),
+               let range = Range(match.range, in: output) {
+                output.removeSubrange(range)
+                break
+            }
+        }
+
+        return output
+            .replacingOccurrences(of: "²", with: "^2")
+            .replacingOccurrences(of: "³", with: "^3")
+            .replacingOccurrences(of: "×", with: "\\times ")
+            .replacingOccurrences(of: "÷", with: "\\div ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
     class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
@@ -236,5 +295,4 @@ struct MathView: NSViewRepresentable {
         }
     }
 }
-
 

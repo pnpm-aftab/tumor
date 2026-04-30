@@ -497,6 +497,18 @@ function isPlaceholderAnswer(value) {
     ].includes(normalized);
 }
 
+function isGenericProblemSummary(value) {
+    const normalized = normalizeQuestionText(value).toLowerCase();
+    return [
+        'solve linear equation',
+        'solve linear equation for x',
+        'solving linear equation',
+        'solving equation',
+        'solve equation',
+        'math problem solution'
+    ].includes(normalized);
+}
+
 function reshapeSteps(candidateSteps, fallbackSteps) {
     const hasCandidate = Array.isArray(candidateSteps) && candidateSteps.length > 0;
     const steps = hasCandidate ? candidateSteps : fallbackSteps;
@@ -518,8 +530,8 @@ function finalizeTutorResponse(candidateResponse, requestContext) {
     const inferredKind = inferProblemKind(requestContext.questionText, fallback.parsedExpressionLatex);
     
     // Check if the candidate's summary looks better than the generic fallback
-    const useCandidateSummary = validatedCandidate.problemSummary && 
-                                !validatedCandidate.problemSummary.includes("Math problem solution") &&
+    const useCandidateSummary = validatedCandidate.problemSummary &&
+                                !isGenericProblemSummary(validatedCandidate.problemSummary) &&
                                 validatedCandidate.problemSummary.length > 5;
 
     const shouldPreferFallbackAnswer =
@@ -598,6 +610,13 @@ function getResponsesTextFormat() {
         name: TUTORING_RESULT_JSON_SCHEMA.name,
         strict: TUTORING_RESULT_JSON_SCHEMA.strict,
         schema: TUTORING_RESULT_JSON_SCHEMA.schema
+    };
+}
+
+function getChatResponseFormat() {
+    return {
+        type: 'json_schema',
+        json_schema: TUTORING_RESULT_JSON_SCHEMA
     };
 }
 
@@ -909,9 +928,10 @@ You must respond with valid JSON only. No markdown code blocks, no prose outside
 }
 
 ## Content Separation (CRITICAL)
-- **Text fields** (problemSummary, summary, steps[].title, steps[].explanationMarkdown, finalAnswer, conceptSummary): Plain language only. NO LaTeX symbols.
-- **Math fields** (parsedExpressionLatex, steps[].latex): LaTeX formulas only. NO explanatory words.
-- **Never mix**: Don't put text like "Guided Strategy" in latex fields, or formulas like "$x^2$" in text fields.
+- **Plain-text explanation fields** (problemSummary, summary, steps[].title, steps[].explanationMarkdown, conceptSummary): Plain language only. Do not include formulas, LaTeX, or dollar-delimited math.
+- **Answer field** (finalAnswer): A complete plain-text sentence may include the final math result, but do not use dollar signs or LaTeX delimiters.
+- **Math fields** (parsedExpressionLatex, steps[].latex): LaTeX formulas only. NO explanatory words, dollar delimiters, or phrases such as "The answer is".
+- **Never mix**: Don't put text like "Guided Strategy" in latex fields, or dollar-delimited formulas like "$x^2$" in explanation fields.
 
 ## Quality Standards
 - **problemSummary**: Start with action verb, be specific
@@ -927,6 +947,7 @@ You must respond with valid JSON only. No markdown code blocks, no prose outside
 - **Ambiguous problems**: State assumptions clearly in problemSummary, set confidence to low
 - **Multi-step problems**: Break into 3-5 steps max, each with clear purpose
 - **Verification**: Include a verification step when possible (substitute answer back, check reasonableness)
+- **Screenshots**: Treat the typed prompt as the user's instruction and the screenshot as visual context; do not invent visible math when the image is unclear
 `;
 
     if (image) {
@@ -962,7 +983,7 @@ You must respond with valid JSON only. No markdown code blocks, no prose outside
                         ]
                     }
                 ],
-                response_format: { type: 'json_object' }
+                response_format: getChatResponseFormat()
             }, { timeout: LLM_TIMEOUT_MS });
             content = response.choices[0].message.content;
         }

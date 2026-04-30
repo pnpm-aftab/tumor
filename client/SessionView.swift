@@ -65,12 +65,14 @@ struct SessionView: View {
                         .transition(.move(edge: .leading).combined(with: .opacity))
                 }
                 contentArea
+                    .layoutPriority(0)
                 actionButtons
+                    .layoutPriority(2)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .frame(height: 60)
-            .frame(width: isMenuExpanded ? 680 : 420)
+            .frame(width: pillWidth)
             .modernPillStyle()
             .animation(Theme.morphSpring, value: isMenuExpanded)
             .zIndex(2) // Keep pill on top, prevent it from being affected by result page transitions
@@ -86,19 +88,11 @@ struct SessionView: View {
         .onChange(of: mathService.currentResult) { _, _ in repositionPanel() }
         .onChange(of: mathService.captureMode) { _, newMode in
             if newMode == .cursorArea {
-                CursorHighlightManager.shared.onFrameChanged = { frame in
-                    DispatchQueue.main.async {
-                        guard let panel = NSApplication.shared.windows.first(where: { $0 is FloatingPanel }) as? FloatingPanel else { return }
-                        panel.updateSizeAndPosition(
-                            isCollapsed: mathService.currentResult == nil,
-                            anchorRect: frame,
-                            anchorMode: .rightOfSelection
-                        )
-                    }
-                }
+                configureCursorAreaCallbacks()
                 CursorHighlightManager.shared.start()
             } else {
                 CursorHighlightManager.shared.onFrameChanged = nil
+                CursorHighlightManager.shared.onSelectionLocked = nil
                 CursorHighlightManager.shared.stop()
             }
         }
@@ -110,22 +104,23 @@ struct SessionView: View {
         }
         .onAppear {
             if mathService.captureMode == .cursorArea {
-                CursorHighlightManager.shared.onFrameChanged = { frame in
-                    DispatchQueue.main.async {
-                        guard let panel = NSApplication.shared.windows.first(where: { $0 is FloatingPanel }) as? FloatingPanel else { return }
-                        panel.updateSizeAndPosition(
-                            isCollapsed: mathService.currentResult == nil,
-                            anchorRect: frame,
-                            anchorMode: .rightOfSelection
-                        )
-                    }
-                }
+                configureCursorAreaCallbacks()
                 CursorHighlightManager.shared.start()
             }
         }
         .onDisappear {
+            CursorHighlightManager.shared.onFrameChanged = nil
+            CursorHighlightManager.shared.onSelectionLocked = nil
             CursorHighlightManager.shared.stop()
         }
+    }
+
+    private var pillWidth: CGFloat {
+        if isMenuExpanded {
+            return 680
+        }
+
+        return 420
     }
 
     private var hamburgerButton: some View {
@@ -373,6 +368,9 @@ struct SessionView: View {
                     .onSubmit {
                         if !questionText.isEmpty { submitQuestion() }
                     }
+                    .lineLimit(1)
+                    .frame(minWidth: 44, maxWidth: .infinity)
+                    .layoutPriority(0)
             } else {
                 HStack(spacing: 12) {
                     HStack(spacing: 6) {
@@ -409,8 +407,12 @@ struct SessionView: View {
                         WaveformView(level: audioService.currentLevel)
                     }
                 }
+                .frame(minWidth: 44, maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(0)
             }
         }
+        .frame(minWidth: 44, maxWidth: .infinity, alignment: .leading)
+        .clipped()
     }
     
     @ViewBuilder
@@ -590,7 +592,7 @@ struct SessionView: View {
                 let isCursorMode = mathService.captureMode == .cursorArea
                 let hasResult = mathService.currentResult != nil
 
-                if isCursorMode {
+                if isCursorMode, CursorHighlightManager.shared.isLocked {
                     let selectionFrame = CursorHighlightManager.shared.currentCaptureFrame
                     panel.updateSizeAndPosition(
                         isCollapsed: !hasResult,
@@ -604,6 +606,16 @@ struct SessionView: View {
                     )
                 }
             }
+        }
+    }
+
+    private func configureCursorAreaCallbacks() {
+        CursorHighlightManager.shared.onFrameChanged = { _ in
+            guard CursorHighlightManager.shared.isLocked else { return }
+            repositionPanel()
+        }
+        CursorHighlightManager.shared.onSelectionLocked = { _ in
+            repositionPanel()
         }
     }
 }
@@ -652,7 +664,7 @@ struct HoverTrayLabel: View {
                     }
                 }
                 hoverWorkItem = workItem
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.28, execute: workItem)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
             } else {
                 withAnimation(Theme.morphSpring) {
                     isHovering = false
@@ -742,9 +754,9 @@ struct ResultPageContentView: View {
                                         .opacity(problemMathState == .ready ? 1 : 0)
                                         .allowsHitTesting(false)
                                 }
-                                .frame(minHeight: 60)
+                                .frame(minHeight: 88)
                                 .padding(.horizontal, 20)
-                                .padding(.vertical, 16)
+                                .padding(.vertical, 12)
                             }
                             .background(Theme.surface)
                             .cornerRadius(Theme.cornerRadius)
@@ -818,9 +830,9 @@ struct StepView: View {
                             .opacity(mathState == .ready ? 1 : 0)
                             .allowsHitTesting(false)
                     }
-                    .frame(minHeight: 60)
+                    .frame(minHeight: 78)
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 10)
                 }
                 .background(Theme.surface.opacity(0.5))
                 .cornerRadius(Theme.cornerRadius)
@@ -1038,7 +1050,7 @@ struct MathText: View {
     var foregroundColor: Color = Theme.textPrimary.opacity(0.85)
     var latexBackgroundColor: Color = Theme.surface.opacity(0.5)
     var latexPadding: CGFloat = 12
-    var latexMinHeight: CGFloat = 40
+    var latexMinHeight: CGFloat = 64
 
     @State private var renderStates: [Int: MathViewState] = [:]
 
@@ -1073,7 +1085,7 @@ struct MathText: View {
                 case .displayLatex:
                     mathView(for: index, latex: component.content, inline: false)
                         .padding(.horizontal, latexPadding)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 10)
                         .frame(minHeight: latexMinHeight)
                         .background(latexBackgroundColor)
                         .cornerRadius(Theme.cornerRadius)
