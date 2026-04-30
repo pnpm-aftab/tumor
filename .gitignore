@@ -25,6 +25,8 @@ pnpm-debug.log*
 !.env.example
 
 # Local tool / agent state
+.claude/
 .factory/
+.gemini/
 .ralph-state/
 .superset/

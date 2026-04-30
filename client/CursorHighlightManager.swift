@@ -12,7 +12,7 @@ class CursorHighlightWindow: NSWindow {
         )
         self.isOpaque = false
         self.backgroundColor = .clear
-        self.level = .screenSaver
+        self.level = .normal
         self.ignoresMouseEvents = true
         self.hasShadow = false
 
@@ -117,10 +117,17 @@ class CursorHighlightManager {
     private var clickMonitor: Any?
     private(set) var isActive = false
     private(set) var isLocked = false
+    private(set) var selectedFrame: NSRect?
+
+    var onFrameChanged: ((NSRect) -> Void)?
+    var onSelectionLocked: ((NSRect) -> Void)?
 
     /// The frame to capture. If locked, returns the locked window frame.
     /// If unlocked, returns a frame centered on the current mouse position.
     var currentCaptureFrame: NSRect {
+        if let frame = selectedFrame {
+            return frame
+        }
         if isLocked, let frame = window?.frame {
             return frame
         }
@@ -137,17 +144,31 @@ class CursorHighlightManager {
     func start() {
         guard !isActive else { return }
         isActive = true
-        isLocked = false
 
         if window == nil {
             window = CursorHighlightWindow(size: captureAreaSize)
         }
-        (window?.contentView as? CursorHighlightView)?.isLocked = false
-        window?.contentView?.needsDisplay = true
-        window?.orderFrontRegardless()
-        updatePosition()
 
-        registerMovementMonitors()
+        if let selectedFrame {
+            isLocked = true
+            window?.setFrame(selectedFrame, display: true, animate: false)
+        } else {
+            isLocked = false
+            updatePosition()
+        }
+
+        (window?.contentView as? CursorHighlightView)?.isLocked = isLocked
+        window?.contentView?.needsDisplay = true
+        window?.orderFront(nil) // Use orderFront instead of orderFrontRegardless
+
+        if isLocked {
+            removeMovementMonitors()
+            if let selectedFrame {
+                onFrameChanged?(selectedFrame)
+            }
+        } else {
+            registerMovementMonitors()
+        }
         registerClickMonitor()
     }
 
@@ -168,6 +189,31 @@ class CursorHighlightManager {
         if let cm = clickMonitor {
             NSEvent.removeMonitor(cm)
             clickMonitor = nil
+        }
+    }
+
+    func persistSelection(frame: NSRect) {
+        selectedFrame = frame
+
+        guard let window else { return }
+        isLocked = true
+        removeMovementMonitors()
+        window.setFrame(frame, display: true, animate: false)
+        (window.contentView as? CursorHighlightView)?.isLocked = true
+        window.contentView?.needsDisplay = true
+        onSelectionLocked?(frame)
+        onFrameChanged?(frame)
+    }
+
+    func clearSelection() {
+        selectedFrame = nil
+        isLocked = false
+
+        if isActive {
+            registerMovementMonitors()
+            (window?.contentView as? CursorHighlightView)?.isLocked = false
+            window?.contentView?.needsDisplay = true
+            updatePosition()
         }
     }
 
@@ -223,11 +269,16 @@ class CursorHighlightManager {
         removeMovementMonitors()
         (window?.contentView as? CursorHighlightView)?.isLocked = true
         window?.contentView?.needsDisplay = true
+        if let frame = window?.frame {
+            selectedFrame = frame
+            onSelectionLocked?(frame)
+        }
     }
 
     private func unlock() {
         guard isActive, isLocked else { return }
         isLocked = false
+        selectedFrame = nil
         registerMovementMonitors()
         (window?.contentView as? CursorHighlightView)?.isLocked = false
         window?.contentView?.needsDisplay = true
@@ -245,5 +296,6 @@ class CursorHighlightManager {
             height: captureAreaSize
         )
         window?.setFrame(windowFrame, display: true, animate: false)
+        onFrameChanged?(windowFrame)
     }
 }

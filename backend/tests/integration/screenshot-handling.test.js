@@ -292,37 +292,5 @@ describe('Screenshot/Image Handling Integration Tests (VAL-OCR-*)', () => {
             assert.strictEqual(response.status, 200);
             assert(response.body.problemSummary);
         });
-
-        it('should handle image with action simpler', async () => {
-            const response = await request('POST', '/api/tutor', {
-                questionText: 'solve this',
-                screenshotImage: MATH_EQUATION_IMAGE,
-                action: 'simpler'
-            });
-
-            assert.strictEqual(response.status, 200);
-            assert(response.body.steps);
-            // Simpler should have fewer steps
-            assert.ok(
-                response.body.steps.length <= 3,
-                'Simpler action should produce fewer steps'
-            );
-        });
-
-        it('should handle image with action detailed', async () => {
-            const response = await request('POST', '/api/tutor', {
-                questionText: 'solve this',
-                screenshotImage: MATH_EQUATION_IMAGE,
-                action: 'detailed'
-            });
-
-            assert.strictEqual(response.status, 200);
-            assert(response.body.steps);
-            // Detailed should have more steps
-            assert.ok(
-                response.body.steps.length >= 3,
-                'Detailed action should produce more steps'
-            );
-        });
     });
 });

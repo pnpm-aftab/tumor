@@ -3,7 +3,7 @@ const {
     verifyMath,
     verifyDerivative,
     verifyIntegral
-} = require('./verification');
+} = require('../../verification');
 
 console.log('=== Direct Verification Tests for Calculus Assertions ===\n');
 

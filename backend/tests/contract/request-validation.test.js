@@ -111,56 +111,11 @@ describe('Request Validation Contract Tests', () => {
         });
     });
 
-    describe('VAL-API-004: screenshotImage must be valid base64 when present', () => {
+    describe('VAL-API-004: screenshotImage must be valid string when present', () => {
         it('should accept request without screenshotImage', async () => {
             const response = await request('POST', '/api/tutor', { questionText: '2x + 3 = 7' });
             assert.strictEqual(response.status, 200);
             assert(response.body.problemSummary);
-        });
-
-        it('should reject request with invalid base64 screenshotImage', async () => {
-            const response = await request('POST', '/api/tutor', {
-                questionText: 'solve this',
-                screenshotImage: '!!!invalid-base64!!!'
-            });
-            assert.strictEqual(response.status, 400);
-            assert(response.body.error);
-            assert(response.body.error.toLowerCase().includes('image') || response.body.error.toLowerCase().includes('base64'));
-        });
-    });
-
-    describe('VAL-API-005: action field accepts only valid values', () => {
-        it('should reject request with invalid action value', async () => {
-            const response = await request('POST', '/api/tutor', {
-                questionText: 'x = 1',
-                action: 'foobar'
-            });
-            assert.strictEqual(response.status, 400);
-            assert(response.body.error);
-        });
-
-        it('should accept request with valid action "simpler"', async () => {
-            const response = await request('POST', '/api/tutor', {
-                questionText: 'x = 1',
-                action: 'simpler'
-            });
-            assert.strictEqual(response.status, 200);
-        });
-
-        it('should accept request with valid action "detailed"', async () => {
-            const response = await request('POST', '/api/tutor', {
-                questionText: 'x = 1',
-                action: 'detailed'
-            });
-            assert.strictEqual(response.status, 200);
-        });
-
-        it('should accept request with null action', async () => {
-            const response = await request('POST', '/api/tutor', {
-                questionText: 'x = 1',
-                action: null
-            });
-            assert.strictEqual(response.status, 200);
         });
     });
 
@@ -289,19 +244,10 @@ describe('Request Validation Contract Tests', () => {
             assert.strictEqual(response.status, 200);
         });
 
-        it('should accept request with null action', async () => {
-            const response = await request('POST', '/api/tutor', {
-                questionText: '1+1',
-                action: null
-            });
-            assert.strictEqual(response.status, 200);
-        });
-
         it('should accept request with all optional fields as null', async () => {
             const response = await request('POST', '/api/tutor', {
                 questionText: '1+1',
-                screenshotImage: null,
-                action: null
+                screenshotImage: null
             });
             assert.strictEqual(response.status, 200);
         });

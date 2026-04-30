@@ -21,7 +21,8 @@ struct TumorApp: App {
             Divider()
 
             Button("Capture Screen") {
-                appDelegate.startSession(mode: .text) // Starts text mode but we can auto-trigger screen capture
+                appDelegate.mathService.captureMode = .cursorArea
+                appDelegate.startSession(mode: .text)
             }
             .keyboardShortcut("1", modifiers: [.command, .shift])
 

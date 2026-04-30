@@ -44,7 +44,7 @@
 
 - [x] Add an audio state with a voice-memo-style animated recording view.
 
-- [ ] Surface Recent Questions in the visible client UI (questions are persisted, but no list is currently shown).
+- [x] Surface Recent Questions in the visible client UI (persisted in UserDefaults and surfaced via clock-icon menu).
 
 ## Phase 4: macOS Client - Features
 
@@ -75,9 +75,9 @@
 - [x] Replace SwiftUI `Window` with custom `FloatingPanel` (NSPanel) for true borderless UI.
 - [x] Implement `SessionPanelController` for lifecycle management of the floating UI.
 
-- [x] Implement LaTeX rendering in the panel.
+- [x] Implement LaTeX rendering in the panel using WKWebView and bundled KaTeX assets.
 - [x] Bundle math rendering assets locally instead of relying on CDN-hosted KaTeX.
-- [x] Render step explanations as rich Markdown instead of plain text.
+- [x] Render step explanations as rich Markdown with integrated LaTeX support (MathText).
 - [x] Keep stable step identities for SwiftUI list rendering.
 - [x] Add user-visible loading and error states for request/decode failures.
 
@@ -100,11 +100,13 @@
 - [x] Test full-screen automatic context capture with the tutoring flow.
 - [x] Test screenshot-based calculus with a true OCR/extraction pipeline.
 - [x] Test "Re-explain" functionality (Verified).
+- [x] Verify symbolic verification for derivatives and integrals (Calculus support).
+- [x] Verify regression fix for integral phrasing ("what's the integral of...").
 
 ## UX Direction Change
 
 - [x] Remove the persistent floating desktop launcher/buttons and restore the menu bar icon as the primary entry point.
-- [ ] Make the menu bar screen entry start a distinct screen-oriented session flow instead of reusing plain text mode.
+- [x] Make the menu bar screen entry start a distinct screen-oriented session flow (Cursor Area mode).
 - [x] Show a temporary bottom-floating session component only after a session begins.
 - [x] Add global hotkeys for starting sessions and dismissing the panel.
 - [x] Ensure smooth morphing transitions between "Pill" and "Result Page" modes.

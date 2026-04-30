@@ -79,7 +79,7 @@ describe('Response Shape Validation (VAL-API-006, VAL-API-007, VAL-API-008, VAL-
 
         assert.strictEqual(response.status, 200);
         
-        const requiredKeys = ['problemSummary', 'parsedExpressionLatex', 'steps', 'finalAnswer', 'conceptSummary', 'confidence', 'verification'];
+        const requiredKeys = ['problemSummary', 'parsedExpressionLatex', 'summary', 'steps', 'finalAnswer', 'conceptSummary', 'confidence', 'verification'];
         const actualKeys = Object.keys(response.body).sort();
         
         assert.deepStrictEqual(actualKeys, requiredKeys.sort());
@@ -153,7 +153,7 @@ describe('Response Shape Validation (VAL-API-006, VAL-API-007, VAL-API-008, VAL-
         assert.strictEqual(response.status, 200);
         
         // Verify all required keys are present
-        const requiredKeys = ['problemSummary', 'parsedExpressionLatex', 'steps', 'finalAnswer', 'conceptSummary', 'confidence', 'verification'];
+        const requiredKeys = ['problemSummary', 'parsedExpressionLatex', 'summary', 'steps', 'finalAnswer', 'conceptSummary', 'confidence', 'verification'];
         requiredKeys.forEach(key => {
             assert(key in response.body, `Missing required key: ${key}`);
         });

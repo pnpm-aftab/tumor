@@ -56,10 +56,12 @@ class TumorAppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func handleStartScreen() {
+        mathService.captureMode = .cursorArea
         startSession(mode: .text)
     }
 
     @objc private func handleDismiss() {
+        CursorHighlightManager.shared.clearSelection()
         panelController.hide()
     }
 }

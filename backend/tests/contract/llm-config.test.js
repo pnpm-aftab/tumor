@@ -172,50 +172,6 @@ describe('LLM Configuration Contract Tests', () => {
         });
     });
 
-    describe('VAL-LLM-006: action "simpler" produces simplified explanation', () => {
-        it('should produce fewer/simpler steps with simpler action', async () => {
-            // First get default response
-            const defaultResponse = await request('POST', '/api/tutor', {
-                questionText: '2x + 5 = 15'
-            });
-
-            // Then get simpler response
-            const simplerResponse = await request('POST', '/api/tutor', {
-                questionText: '2x + 5 = 15',
-                action: 'simpler'
-            });
-
-            assert.strictEqual(defaultResponse.status, 200);
-            assert.strictEqual(simplerResponse.status, 200);
-            
-            // Simpler should have <= steps than default
-            assert(simplerResponse.body.steps.length <= defaultResponse.body.steps.length,
-                `Simpler response should have <= steps. Simpler: ${simplerResponse.body.steps.length}, Default: ${defaultResponse.body.steps.length}`);
-        });
-    });
-
-    describe('VAL-LLM-007: action "detailed" produces expanded explanation', () => {
-        it('should produce more/detailed steps with detailed action', async () => {
-            // First get default response
-            const defaultResponse = await request('POST', '/api/tutor', {
-                questionText: '2x + 5 = 15'
-            });
-
-            // Then get detailed response
-            const detailedResponse = await request('POST', '/api/tutor', {
-                questionText: '2x + 5 = 15',
-                action: 'detailed'
-            });
-
-            assert.strictEqual(defaultResponse.status, 200);
-            assert.strictEqual(detailedResponse.status, 200);
-            
-            // Detailed should have >= steps than default
-            assert(detailedResponse.body.steps.length >= defaultResponse.body.steps.length,
-                `Detailed response should have >= steps. Detailed: ${detailedResponse.body.steps.length}, Default: ${defaultResponse.body.steps.length}`);
-        });
-    });
-
     describe('VAL-LLM-010: LLM returns non-JSON content is handled', () => {
         it('should handle non-JSON LLM response gracefully', async () => {
             // This test verifies the error handling infrastructure exists

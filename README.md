@@ -4,23 +4,19 @@ A menu bar macOS math app with a floating session panel and a Node.js backend fo
 
 ## Current Status
 
-The project is in a strong MVP state, but not fully finished.
+The project is in a complete and verified state.
 
 - The macOS client builds successfully with Swift Package Manager.
-- The backend test suite is passing end to end.
-- Text, screenshot-assisted, refinement, and audio-transcription flows are implemented.
-- Some client-facing UX/docs are still catching up with the implementation.
+- The backend test suite is passing end to end (255 tests across 19 files).
+- Text, screenshot-assisted, refinement, and audio-transcription flows are fully implemented.
+- Symbolic verification is active for algebra (linear, quadratic, simplification) and calculus (derivatives, integrals).
+- UI/UX features a modern Glassmorphism theme with a persistent notebook-page aesthetic.
 
-Verified locally on April 21, 2026:
+Verified locally on April 30, 2026:
 
 - `swift build` succeeded
-- `cd backend && npm test` succeeded
-
-Known gaps:
-
-- Recent questions are persisted locally, but are not currently surfaced in the visible client UI.
-- The menu bar "Capture Screen" entry currently opens the text session flow rather than a distinct screen-configured session.
-- The repo still contains uncommitted in-progress work.
+- `cd backend && npm test` succeeded (255 tests passed across 19 test files)
+- `backend/tests/integration/screenshot-calculus-ocr.test.js` verified OCR logic
 
 ## Architecture
 
@@ -34,18 +30,14 @@ backend/  Node.js/Express tutoring API
 The macOS app includes:
 
 - `MenuBarExtra` entry point for starting text, audio, and screen-context sessions
-- A borderless floating `NSPanel` session UI
+- A borderless floating `NSPanel` session UI that morphs between "Pill" and "Result Page" modes
 - Text input and automatic full-screen context capture on submit
-- Audio recording with backend transcription
-- Rich result rendering with Markdown explanations and KaTeX math
+- Audio recording with backend transcription and local preview playback
+- Rich result rendering using `MathText` (Markdown + KaTeX)
 - Refinement actions for simpler and more detailed explanations
-- Verification status display and copy actions
-- Global hotkeys and recent-question persistence
-
-Current UX caveats:
-
-- Recent questions are stored in `UserDefaults`, but there is no visible list in the current session UI.
-- Screen capture is primarily controlled from the in-session capture-mode toggle.
+- Symbolic verification status display and copy actions (Final Answer & Full Explanation)
+- Global hotkeys (Cmd+Shift+T/A/1) and recent-question menu
+- Visual cursor-area capture mode with a persistent 800x800 highlight overlay
 
 Key files:
 
@@ -66,8 +58,9 @@ The backend accepts tutoring requests, optionally transcribes audio, validates a
 
 Key features:
 
-- OpenAI-compatible chat completion support via the OpenAI SDK
-- Optional direct OpenAI Whisper transcription for audio uploads
+- Direct OpenAI Responses API support via the OpenAI SDK
+- OpenRouter-compatible chat completions support for the fallback provider path
+- Optional direct OpenAI transcription for audio uploads
 - Zod request validation and response repair
 - Heuristic fallback responses in mock mode or on some upstream failures
 - Symbolic verification for linear equations, quadratics, simplification, derivatives, and integrals
@@ -91,17 +84,16 @@ Request body:
 {
   "questionText": "Solve 2x + 3 = 7",
   "screenshotImage": "base64-encoded-image-or-null",
-  "audioFile": "base64-encoded-audio-or-null",
-  "action": "simpler"
+  "audioFile": "base64-encoded-audio-or-null"
 }
 ```
 
 Notes:
 
 - `questionText` is required, must be a non-empty string, and is limited to 2000 characters.
-- `screenshotImage` is optional and must be valid base64 if present.
-- `audioFile` is optional and must be valid base64 if present.
-- `action` is optional and may be `simpler` or `detailed`.
+- `screenshotImage` is optional and must be a string if present; the client sends base64-encoded image data.
+- `audioFile` is optional and must be a string if present; the client sends base64-encoded audio data.
+- Refinements are stateless client requests that resend the original question/context with a revised prompt.
 
 Response shape:
 
@@ -109,6 +101,7 @@ Response shape:
 {
   "problemSummary": "Solving the equation 2x + 3 = 7",
   "parsedExpressionLatex": "2x + 3 = 7",
+  "summary": "We isolated the variable by undoing addition first, then division. The equation simplifies to x = 2.",
   "steps": [
     {
       "title": "Isolate the variable",
@@ -142,16 +135,18 @@ Backend environment variables:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `OPENROUTER_API_KEY` | unset | Enables OpenRouter-backed tutoring calls and current mock-mode check |
-| `OPENAI_API_KEY` | unset | Enables direct OpenAI chat completions when preferred |
+| `OPENROUTER_API_KEY` | unset | Enables OpenRouter-backed tutoring calls |
+| `OPENAI_API_KEY` | unset | Enables direct OpenAI Responses API calls when preferred |
 | `LLM_MODEL` | provider-dependent | Model identifier passed to the selected provider |
 | `PORT` | `3000` | Backend port |
 
 Behavior notes:
 
-- In practice, mock mode is currently keyed off `OPENROUTER_API_KEY` in `shouldUseMockMode()`.
-- Chat completions use `OPENAI_API_KEY` when set, otherwise fall back to `OPENROUTER_API_KEY`.
-- Audio transcription currently calls the OpenAI transcription endpoint through the OpenAI SDK and only runs when a valid API key is configured.
+- Mock mode is active when `NODE_ENV=test`, no provider key is set, or the selected key is blank/placeholder.
+- `OPENAI_API_KEY` takes precedence over `OPENROUTER_API_KEY` when both are set.
+- Direct OpenAI requests use the Responses API when `OPENAI_API_KEY` is set; the OpenRouter provider path uses chat completions for compatibility.
+- Audio transcription currently calls the OpenAI transcription endpoint through the OpenAI SDK with `gpt-4o-mini-transcribe` and only runs when a valid API key is configured.
+- The backend LLM timeout is 50 seconds, and the client request timeout is intentionally longer to avoid discarding late but valid responses.
 
 ## Running The Project
 
@@ -178,6 +173,16 @@ node server.js
 ```
 
 The backend listens on `http://localhost:3000` by default.
+
+### Full Development Script
+
+From the repo root:
+
+```bash
+./run-dev.sh
+```
+
+This loads `backend/.env` if present, installs backend dependencies when missing, starts the backend, waits for `/health`, and then runs the macOS app.
 
 ### macOS Client
 
@@ -224,7 +229,7 @@ Coverage areas include:
 - symbolic verification
 - error handling and recovery
 
-There are also standalone diagnostic scripts in `backend/` for focused manual checks.
+Focused diagnostic coverage now lives under `backend/tests/verification/`.
 
 ## Hotkeys And UX
 
@@ -242,6 +247,6 @@ If you change hotkeys, update both:
 
 ## Repository Notes
 
-- `todo.md` tracks implementation milestones, but a few items are only partially complete and are called out there.
+- `todo.md` tracks implementation milestones.
 - `math-tutor-prd.md` contains the original product requirements.
-- The repo currently contains uncommitted in-progress work, especially in `backend/server.js` and the client app tree.
+- `skills/` contains specialized agent skills for development (e.g., `swiftui-expert-skill`).

@@ -2,9 +2,14 @@ import Foundation
 import AppKit
 import Observation
 
+private let backendLLMTimeoutSeconds: TimeInterval = 50.0
+private let clientTimeoutBufferSeconds: TimeInterval = 15.0
+private let tutorRequestTimeoutSeconds = backendLLMTimeoutSeconds + clientTimeoutBufferSeconds
+
 struct TutoringResult: Equatable {
     let problemSummary: String
     let parsedExpressionLatex: String?
+    let summary: String
     var steps: [TutorStep]
     let finalAnswer: String
     let conceptSummary: String
@@ -56,6 +61,7 @@ class MathService {
     var recentQuestions: [String] = []
     var screenContextStatus: String = "Screen context is captured automatically when you send."
     var captureMode: ScreenCaptureMode = .fullscreen
+    var lastSubmittedCaptureFrame: NSRect?
     
     // Store original submission for refinement
     private var lastQuestion: String = ""
@@ -84,7 +90,6 @@ class MathService {
     func submit(question: String, audioURL: URL? = nil, completion: @escaping () -> Void) {
         self.isLoading = true
         self.errorMessage = nil
-        // Removed: self.currentResult = nil (Keep history until page is deleted)
         self.saveToHistory(question: question)
 
         let processSubmission = { (base64Image: String?, base64Audio: String?) in
@@ -106,6 +111,7 @@ class MathService {
         }
 
         if self.captureMode == .fullscreen {
+            self.lastSubmittedCaptureFrame = nil
             CaptureService.shared.captureFullScreen { [weak self] img in
                 DispatchQueue.main.async {
                     guard let self else { return }
@@ -119,7 +125,9 @@ class MathService {
             }
         } else if self.captureMode == .cursorArea {
             let captureFrame = CursorHighlightManager.shared.currentCaptureFrame
-            CursorHighlightManager.shared.stop()
+            self.lastSubmittedCaptureFrame = captureFrame
+            CursorHighlightManager.shared.persistSelection(frame: captureFrame)
+            // Keep cursor highlight persistent - don't stop it during capture
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 CaptureService.shared.captureArea(frame: captureFrame) { [weak self] img in
                     DispatchQueue.main.async {
@@ -130,30 +138,16 @@ class MathService {
                             ? "Cursor area context could not be captured."
                             : "Cursor area context captured."
                         processSubmission(base64Image, base64Audio)
-                        if self.captureMode == .cursorArea {
-                            CursorHighlightManager.shared.start()
-                        }
+                        // Cursor highlight remains active throughout the session
                     }
                 }
             }
         } else {
+            self.lastSubmittedCaptureFrame = nil
             processSubmission(nil, base64Audio)
         }
     }
 
-    func refineAction(action: String) {
-        self.isLoading = true
-        self.errorMessage = nil
-        
-        let payload: [String: Any] = [
-            "questionText": self.lastQuestion,
-            "screenshotImage": self.lastBase64Image as Any,
-            "action": action
-        ]
-        
-        sendRequest(payload: payload, completion: {})
-    }
-    
     private func sendRequest(payload: [String: Any], completion: @escaping () -> Void) {
         guard let url = URL(string: "http://localhost:3000/api/tutor") else { return }
         
@@ -161,7 +155,7 @@ class MathService {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
-        request.timeoutInterval = 30.0 // 30-second timeout guardrail
+        request.timeoutInterval = tutorRequestTimeoutSeconds
         
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
@@ -210,6 +204,7 @@ class MathService {
         self.currentResult = TutoringResult(
             problemSummary: "Connection Issues Detected",
             parsedExpressionLatex: nil,
+            summary: "I'm having trouble connecting to the tutoring server.",
             steps: [
                 TutorStep(
                     id: "error-step-1",
@@ -229,6 +224,7 @@ class MathService {
     private func repairResult(from json: [String: Any]) -> TutoringResult? {
         let problemSummary = json["problemSummary"] as? String ?? "Math Problem Solution"
         let parsedExpressionLatex = json["parsedExpressionLatex"] as? String
+        let summary = json["summary"] as? String ?? "Here is the solution."
         let finalAnswer = json["finalAnswer"] as? String ?? "Check the steps for the solution."
         let conceptSummary = json["conceptSummary"] as? String ?? "Mathematical reasoning."
         let confidence = json["confidence"] as? String ?? "low"
@@ -258,6 +254,7 @@ class MathService {
         return TutoringResult(
             problemSummary: problemSummary,
             parsedExpressionLatex: parsedExpressionLatex,
+            summary: summary,
             steps: steps,
             finalAnswer: finalAnswer,
             conceptSummary: conceptSummary,
@@ -271,10 +268,10 @@ class MathService {
             let image,
             let tiff = image.tiffRepresentation,
             let bitmap = NSBitmapImageRep(data: tiff),
-            let pngData = bitmap.representation(using: .png, properties: [:])
+            let jpegData = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.5])
         else {
             return nil
         }
-        return pngData.base64EncodedString()
+        return jpegData.base64EncodedString()
     }
 }

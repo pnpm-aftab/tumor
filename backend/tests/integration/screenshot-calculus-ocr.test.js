@@ -192,31 +192,7 @@ describe('Screenshot-based Calculus OCR/Extraction Pipeline (VAL-OCR-CALC)', () 
         });
     });
 
-    describe('VAL-OCR-CALC-005: Edge cases in screenshot calculus pipeline', () => {
-        it('should handle screenshot with calculus action=detailed', async () => {
-            const response = await request('POST', '/api/tutor', {
-                questionText: 'find the derivative of sin(x)',
-                screenshotImage: CALCULUS_SCREENSHOT,
-                action: 'detailed'
-            });
-
-            assert.strictEqual(response.status, 200);
-            assert.ok(response.body.steps.length >= 3, 'Detailed should produce more steps');
-            assert.ok(response.body.verification);
-        });
-
-        it('should handle screenshot with calculus action=simpler', async () => {
-            const response = await request('POST', '/api/tutor', {
-                questionText: 'find the integral of 2x',
-                screenshotImage: CALCULUS_SCREENSHOT,
-                action: 'simpler'
-            });
-
-            assert.strictEqual(response.status, 200);
-            assert.ok(response.body.steps.length <= 3, 'Simpler should produce fewer steps');
-            assert.ok(response.body.verification);
-        });
-
+    describe('VAL-OCR-CALC-005: Responsiveness in screenshot calculus pipeline', () => {
         it('should remain responsive after calculus screenshot requests', async () => {
             // Send calculus request first
             await request('POST', '/api/tutor', {

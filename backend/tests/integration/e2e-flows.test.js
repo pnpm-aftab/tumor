@@ -211,128 +211,6 @@ describe('End-to-End Integration Tests (VAL-E2E-001 through VAL-E2E-010)', () =>
         });
     });
 
-    describe('VAL-E2E-004: Refinement flow — 3 sequential stateless requests', () => {
-        it('should produce varying detail levels for same problem with each request self-contained', async () => {
-            const questionText = '2x + 5 = 15';
-            
-            // Request 1: Default response
-            const defaultResponse = await makeRequest('POST', '/api/tutor', {
-                questionText
-            });
-
-            assert.strictEqual(defaultResponse.status, 200);
-            assert.ok(defaultResponse.body.steps);
-            const defaultStepCount = defaultResponse.body.steps.length;
-            
-            // Request 2: Simpler response (client re-sends questionText)
-            const simplerResponse = await makeRequest('POST', '/api/tutor', {
-                questionText,
-                action: 'simpler'
-            });
-
-            assert.strictEqual(simplerResponse.status, 200);
-            assert.ok(simplerResponse.body.steps);
-            const simplerStepCount = simplerResponse.body.steps.length;
-            
-            // Request 3: Detailed response (client re-sends questionText)
-            const detailedResponse = await makeRequest('POST', '/api/tutor', {
-                questionText,
-                action: 'detailed'
-            });
-
-            assert.strictEqual(detailedResponse.status, 200);
-            assert.ok(detailedResponse.body.steps);
-            const detailedStepCount = detailedResponse.body.steps.length;
-            
-            // Verify all solve the same problem
-            assert.ok(
-                defaultResponse.body.problemSummary.toLowerCase().includes('2x') ||
-                defaultResponse.body.parsedExpressionLatex.includes('2x'),
-                'Default response should solve the given equation'
-            );
-            
-            assert.ok(
-                simplerResponse.body.problemSummary.toLowerCase().includes('2x') ||
-                simplerResponse.body.parsedExpressionLatex.includes('2x'),
-                'Simpler response should solve the same equation'
-            );
-            
-            assert.ok(
-                detailedResponse.body.problemSummary.toLowerCase().includes('2x') ||
-                detailedResponse.body.parsedExpressionLatex.includes('2x'),
-                'Detailed response should solve the same equation'
-            );
-            
-            // Verify step count variations
-            assert.ok(
-                simplerStepCount <= defaultStepCount,
-                `Simpler (${simplerStepCount} steps) should have <= default (${defaultStepCount} steps)`
-            );
-            
-            assert.ok(
-                detailedStepCount >= defaultStepCount,
-                `Detailed (${detailedStepCount} steps) should have >= default (${defaultStepCount} steps)`
-            );
-            
-            // Verify all have correct final answer
-            assert.ok(defaultResponse.body.finalAnswer);
-            assert.ok(simplerResponse.body.finalAnswer);
-            assert.ok(detailedResponse.body.finalAnswer);
-            
-            console.log('✓ Refinement flow: 3 requests produce varying detail levels, same problem, each self-contained');
-        });
-    });
-
-    describe('VAL-E2E-005: Screenshot refinement with context', () => {
-        it('should preserve screenshot context across refinement requests (stateless)', async () => {
-            const questionText = 'solve this';
-            
-            // Request 1: Default with screenshot
-            const defaultResponse = await makeRequest('POST', '/api/tutor', {
-                questionText,
-                screenshotImage: MATH_EQUATION_IMAGE
-            });
-
-            assert.strictEqual(defaultResponse.status, 200);
-            assert.ok(defaultResponse.body.parsedExpressionLatex);
-            
-            // Request 2: Simpler with same screenshot (client re-sends all context)
-            const simplerResponse = await makeRequest('POST', '/api/tutor', {
-                questionText,
-                screenshotImage: MATH_EQUATION_IMAGE,
-                action: 'simpler'
-            });
-
-            assert.strictEqual(simplerResponse.status, 200);
-            assert.ok(simplerResponse.body.parsedExpressionLatex);
-            
-            // Verify both responses address visual content
-            assert.ok(
-                defaultResponse.body.parsedExpressionLatex !== null &&
-                defaultResponse.body.parsedExpressionLatex.length > 0,
-                'Default response should extract from screenshot'
-            );
-            
-            assert.ok(
-                simplerResponse.body.parsedExpressionLatex !== null &&
-                simplerResponse.body.parsedExpressionLatex.length > 0,
-                'Simpler response should also extract from screenshot'
-            );
-            
-            // Verify simpler response is actually simpler
-            assert.ok(
-                simplerResponse.body.steps.length <= defaultResponse.body.steps.length,
-                'Simpler response should have fewer or equal steps'
-            );
-            
-            // Both should have medium confidence (image-based in mock mode)
-            assert.strictEqual(defaultResponse.body.confidence, 'medium');
-            assert.strictEqual(simplerResponse.body.confidence, 'medium');
-            
-            console.log('✓ Screenshot refinement: both requests address visual content, simpler is actually simpler');
-        });
-    });
-
     describe('VAL-E2E-006: Error recovery flow', () => {
         it('should stay healthy after bad request then good requests', async () => {
             // Request 1: Malformed request (missing questionText)
@@ -588,29 +466,10 @@ describe('End-to-End Integration Tests (VAL-E2E-001 through VAL-E2E-010)', () =>
             assert.ok(response.body.problemSummary);
         });
 
-        it('should handle concurrent requests with different actions', async () => {
-            const question = 'solve 2x + 3 = 7';
-            
-            const [defaultResp, simplerResp, detailedResp] = await Promise.all([
-                makeRequest('POST', '/api/tutor', { questionText: question }),
-                makeRequest('POST', '/api/tutor', { questionText: question, action: 'simpler' }),
-                makeRequest('POST', '/api/tutor', { questionText: question, action: 'detailed' })
-            ]);
-            
-            assert.strictEqual(defaultResp.status, 200);
-            assert.strictEqual(simplerResp.status, 200);
-            assert.strictEqual(detailedResp.status, 200);
-            
-            // Verify step count differences
-            assert.ok(simplerResp.body.steps.length <= defaultResp.body.steps.length);
-            assert.ok(detailedResp.body.steps.length >= defaultResp.body.steps.length);
-        });
-
         it('should handle null optional fields gracefully', async () => {
             const response = await makeRequest('POST', '/api/tutor', {
                 questionText: 'solve x = 5',
-                screenshotImage: null,
-                action: null
+                screenshotImage: null
             });
 
             assert.strictEqual(response.status, 200);

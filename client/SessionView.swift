@@ -13,6 +13,8 @@ struct SessionView: View {
     @FocusState private var isTextFieldFocused: Bool
     
     @State var mode: SessionMode = .text
+    @State private var isMenuExpanded = false
+    @State private var isRecentPopoverPresented = false
     
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -48,34 +50,56 @@ struct SessionView: View {
             
             // THE PAGE CONTENT (Coupled only when generated)
             if let result = mathService.currentResult {
-                ResultPageContentView(result: result, mathService: mathService)
+                ResultPageContentView(result: result, mathService: mathService, onResize: { repositionPanel() })
                     .padding(.bottom, 72) // Pill height (60) + Spacing (12)
                     .transition(.opacity)
                     .zIndex(1)
             }
             
             // THE PILL (Always at bottom - stationary)
-            HStack(spacing: 16) {
-                modeSwitchButton
+            HStack(spacing: 12) {
+                hamburgerButton
+                modeToggleButton
+                if isMenuExpanded {
+                    expandedControlTray
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                }
                 contentArea
-                trailingButtons
+                actionButtons
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .frame(height: 60)
-            .frame(width: 500)
+            .frame(width: isMenuExpanded ? 680 : 420)
             .modernPillStyle()
+            .animation(Theme.morphSpring, value: isMenuExpanded)
             .zIndex(2) // Keep pill on top, prevent it from being affected by result page transitions
         }
         .padding(.horizontal, 30)
         .padding(.bottom, 30)
         .padding(.top, 4)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .onExitCommand {
+            NotificationCenter.default.post(name: .dismissSession, object: nil)
+            mathService.currentResult = nil
+        }
+        .onChange(of: isMenuExpanded) { _, _ in repositionPanel() }
         .onChange(of: mathService.currentResult) { _, _ in repositionPanel() }
         .onChange(of: mathService.captureMode) { _, newMode in
             if newMode == .cursorArea {
+                CursorHighlightManager.shared.onFrameChanged = { frame in
+                    DispatchQueue.main.async {
+                        guard let panel = NSApplication.shared.windows.first(where: { $0 is FloatingPanel }) as? FloatingPanel else { return }
+                        panel.updateSizeAndPosition(
+                            isCollapsed: mathService.currentResult == nil,
+                            anchorRect: frame,
+                            anchorMode: .rightOfSelection
+                        )
+                    }
+                }
                 CursorHighlightManager.shared.start()
             } else {
+                CursorHighlightManager.shared.onFrameChanged = nil
                 CursorHighlightManager.shared.stop()
             }
         }
@@ -87,6 +111,16 @@ struct SessionView: View {
         }
         .onAppear {
             if mathService.captureMode == .cursorArea {
+                CursorHighlightManager.shared.onFrameChanged = { frame in
+                    DispatchQueue.main.async {
+                        guard let panel = NSApplication.shared.windows.first(where: { $0 is FloatingPanel }) as? FloatingPanel else { return }
+                        panel.updateSizeAndPosition(
+                            isCollapsed: mathService.currentResult == nil,
+                            anchorRect: frame,
+                            anchorMode: .rightOfSelection
+                        )
+                    }
+                }
                 CursorHighlightManager.shared.start()
             }
         }
@@ -94,7 +128,149 @@ struct SessionView: View {
             CursorHighlightManager.shared.stop()
         }
     }
-    
+
+    private var hamburgerButton: some View {
+        Button(action: {
+            withAnimation(Theme.morphSpring) {
+                isMenuExpanded.toggle()
+            }
+        }) {
+            HoverTrayLabel(
+                icon: "line.3.horizontal",
+                title: isMenuExpanded ? "Hide Menu" : "More",
+                tint: .gray,
+                isActive: isMenuExpanded
+            )
+                .rotationEffect(.degrees(isMenuExpanded ? 180 : 0))
+        }
+        .buttonStyle(.plain)
+        .help(isMenuExpanded ? "Hide menu" : "Show menu")
+    }
+
+    private var expandedControlTray: some View {
+        HStack(spacing: 6) {
+            Button(action: {
+                isRecentPopoverPresented.toggle()
+            }) {
+                HoverTrayLabel(icon: "clock.arrow.circlepath", title: "History", tint: .indigo, isActive: isRecentPopoverPresented)
+                    .help("Recent questions")
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $isRecentPopoverPresented, arrowEdge: .bottom) {
+                recentQuestionsPopover
+            }
+
+            if mode == .audio && audioService.hasRecordedAudio {
+                trayButton(
+                    icon: audioService.isPlaying ? "stop.fill" : "play.fill",
+                    title: audioService.isPlaying ? "Stop Audio" : "Play Audio",
+                    help: audioService.isPlaying ? "Stop preview" : "Play preview",
+                    tint: .green,
+                    staysExpanded: true,
+                    action: {
+                        if audioService.isPlaying {
+                            audioService.stopPreview()
+                        } else {
+                            audioService.playPreview()
+                        }
+                    }
+                )
+
+                trayButton(
+                    icon: "trash",
+                    title: "Discard Audio",
+                    help: "Discard recording",
+                    tint: .red,
+                    action: {
+                        audioService.stopPreview()
+                        audioService.audioFileURL = nil
+                        collapseMenu()
+                    }
+                )
+            }
+
+            if mathService.captureMode == .cursorArea {
+                trayButton(icon: "scope", title: "Reselect Area", help: "Select area again", tint: .cyan, action: selectCursorAreaAgain)
+            }
+
+            trayButton(icon: "plus", title: "New Session", help: "New session", tint: .mint, action: startNewSession)
+        }
+        .padding(.leading, 2)
+    }
+
+    private func trayButton(
+        icon: String,
+        title: String,
+        help: String,
+        tint: Color,
+        isActive: Bool = false,
+        isDisabled: Bool = false,
+        staysExpanded: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: {
+            action()
+            if !staysExpanded {
+                collapseMenu()
+            }
+        }) {
+            HoverTrayLabel(icon: icon, title: title, tint: tint, isActive: isActive)
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.45 : 1.0)
+        .help(help)
+    }
+
+    private var recentQuestionsPopover: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if mathService.recentQuestions.isEmpty {
+                Text("No recent questions")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Theme.textSecondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+            } else {
+                ForEach(mathService.recentQuestions, id: \.self) { question in
+                    Button(action: {
+                        questionText = question
+                        isRecentPopoverPresented = false
+                        collapseMenu()
+                    }) {
+                        Text(question)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Theme.textPrimary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(6)
+        .frame(width: 260)
+        .background(Theme.base)
+    }
+
+    private var modeToggleButton: some View {
+        Button(action: toggleMode) {
+            HoverTrayLabel(
+                icon: mode == .text ? "keyboard.fill" : "mic.fill",
+                title: mode == .text ? "Use Voice" : "Use Text",
+                tint: mode == .text ? .blue : .pink,
+                isActive: true
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(audioService.isRecording)
+        .opacity(audioService.isRecording ? 0.45 : 1.0)
+        .help(mode == .text ? "Switch to audio" : "Switch to text")
+    }
+
     private var modeSwitchButton: some View {
         HStack(spacing: 8) {
             Button(action: toggleMode) {
@@ -119,6 +295,28 @@ struct SessionView: View {
     
     private var trailingButtons: some View {
         HStack(spacing: 8) {
+            Menu {
+                if mathService.recentQuestions.isEmpty {
+                    Text("No recent questions")
+                } else {
+                    ForEach(mathService.recentQuestions, id: \.self) { question in
+                        Button(action: {
+                            questionText = question
+                        }) {
+                            Text(question)
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(Theme.textSecondary)
+                    .frame(width: 36, height: 36)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .frame(width: 36, height: 36)
+
             Button(action: { 
                 withAnimation(Theme.morphSpring) {
                     mathService.captureMode = mathService.captureMode.next
@@ -130,6 +328,27 @@ struct SessionView: View {
                     .frame(width: 36, height: 36)
             }
             .buttonStyle(.plain)
+
+            Menu {
+                Button("Start New Session", action: startNewSession)
+
+                if mathService.captureMode == .cursorArea {
+                    Button("Select Again", action: selectCursorAreaAgain)
+                }
+
+                Button("Close Session", action: closeSession)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Theme.textSecondary)
+                    .frame(width: 36, height: 36)
+                    .background(Theme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border, lineWidth: 2))
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .frame(width: 36, height: 36)
             
             actionButtons
         }
@@ -204,93 +423,56 @@ struct SessionView: View {
     
     @ViewBuilder
     private var actionButtons: some View {
-        ZStack {
+        HStack(spacing: 8) {
+            captureModeButton
+
             if mathService.isLoading {
                 ProgressView().controlSize(.small)
             } else if mode == .text && !questionText.isEmpty {
                 Button(action: submitQuestion) {
-                    Image(systemName: "arrow.up")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(Theme.base)
-                        .frame(width: 32, height: 32)
-                        .background(Theme.textPrimary)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    HoverTrayLabel(icon: "arrow.up", title: "Ask", tint: .green, isActive: true)
                 }
                 .buttonStyle(.plain)
+                .help("Ask tutor")
             } else if mode == .audio && audioService.isRecording {
                 Button(action: {
                     audioService.stopRecording { _ in }
                 }) {
-                    Image(systemName: "stop.fill")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(Theme.base)
-                        .frame(width: 32, height: 32)
-                        .background(Theme.textPrimary)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    HoverTrayLabel(icon: "stop.fill", title: "Stop Recording", tint: .red, isActive: true)
                 }
                 .buttonStyle(.plain)
+                .help("Stop recording")
             } else if mode == .audio && audioService.hasRecordedAudio {
-                HStack(spacing: 8) {
-                    Button(action: {
-                        audioService.stopPreview()
-                        audioService.audioFileURL = nil
-                    }) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Theme.textSecondary)
-                            .frame(width: 32, height: 32)
-                            .background(Theme.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 2))
-                    }
-                    .buttonStyle(.plain)
-
-                    Button(action: {
-                        if audioService.isPlaying {
-                            audioService.stopPreview()
-                        } else {
-                            audioService.playPreview()
-                        }
-                    }) {
-                        Image(systemName: audioService.isPlaying ? "stop.fill" : "play.fill")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(Theme.textPrimary)
-                            .frame(width: 32, height: 32)
-                            .background(Theme.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 2))
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Button(action: submitRecordedAudio) {
-                        Image(systemName: "arrow.up")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(Theme.base)
-                            .frame(width: 32, height: 32)
-                            .background(Theme.textPrimary)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                    }
-                    .buttonStyle(.plain)
-                }
-            } else {
-                Button(action: { 
-                    NotificationCenter.default.post(name: .dismissSession, object: nil)
-                    mathService.currentResult = nil
-                    questionText = ""
-                    audioService.audioFileURL = nil
-                    audioService.stopPreview()
-                }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Theme.textSecondary)
-                        .frame(width: 32, height: 32)
-                        .background(Theme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.border, lineWidth: 2))
+                Button(action: submitRecordedAudio) {
+                    HoverTrayLabel(icon: "arrow.up", title: "Send Audio", tint: .green, isActive: true)
                 }
                 .buttonStyle(.plain)
+                .help("Send audio")
+            } else {
+                Button(action: closeSession) {
+                    HoverTrayLabel(icon: "xmark", title: "Close", tint: .orange, isActive: false)
+                }
+                .buttonStyle(.plain)
+                .help("Close session")
             }
         }
+    }
+
+    private var captureModeButton: some View {
+        Button(action: {
+            withAnimation(Theme.morphSpring) {
+                mathService.captureMode = mathService.captureMode.next
+            }
+        }) {
+            HoverTrayLabel(
+                icon: captureModeIcon(mode: mathService.captureMode),
+                title: captureModeLabel(mode: mathService.captureMode),
+                tint: .teal,
+                isActive: mathService.captureMode != .none
+            )
+        }
+        .buttonStyle(.plain)
+        .help("Capture: \(captureModeLabel(mode: mathService.captureMode))")
     }
     
     private func captureModeIcon(mode: ScreenCaptureMode) -> String {
@@ -300,10 +482,23 @@ struct SessionView: View {
         case .fullscreen: return "macwindow"
         }
     }
+
+    private func captureModeLabel(mode: ScreenCaptureMode) -> String {
+        switch mode {
+        case .none: return "No Screen"
+        case .cursorArea: return "Cursor Area"
+        case .fullscreen: return "Full Screen"
+        }
+    }
     
     private func toggleMode() {
+        setMode(mode == .text ? .audio : .text)
+    }
+
+    private func setMode(_ newMode: SessionMode) {
+        guard mode != newMode else { return }
         withAnimation(Theme.morphSpring) {
-            mode = (mode == .text) ? .audio : .text
+            mode = newMode
             if mode == .audio {
                 audioService.audioFileURL = nil
                 audioService.startRecording()
@@ -314,21 +509,102 @@ struct SessionView: View {
             isTextFieldFocused = (mode == .text)
         }
     }
+
+    private func collapseMenu() {
+        withAnimation(Theme.morphSpring) {
+            isMenuExpanded = false
+        }
+    }
     
     private func submitQuestion() {
-        mathService.submit(question: questionText) { }
+        mathService.submit(question: questionText) {
+            resetComposerAfterAnsweredPrompt(for: .text)
+        }
     }
     
     private func submitRecordedAudio() {
         guard let url = audioService.audioFileURL else { return }
         audioService.stopPreview()
-        mathService.submit(question: "Solve the problem based on my voice instruction.", audioURL: url) { }
+        mathService.submit(question: "Solve the problem based on my voice instruction.", audioURL: url) {
+            resetComposerAfterAnsweredPrompt(for: .audio)
+        }
+    }
+
+    private func resetComposerAfterAnsweredPrompt(for submittedMode: SessionMode) {
+        switch submittedMode {
+        case .text:
+            questionText = ""
+            isTextFieldFocused = true
+        case .audio:
+            audioService.stopPreview()
+            audioService.audioFileURL = nil
+
+            if mode == .audio {
+                audioService.startRecording()
+            }
+        }
+    }
+
+    private func startNewSession() {
+        withAnimation(Theme.morphSpring) {
+            mathService.currentResult = nil
+        }
+        mathService.errorMessage = nil
+        mathService.clearImage()
+        questionText = ""
+        audioService.stopPreview()
+
+        if audioService.isRecording {
+            audioService.stopRecording { _ in }
+        }
+        audioService.audioFileURL = nil
+
+        if mathService.captureMode == .cursorArea {
+            CursorHighlightManager.shared.clearSelection()
+        }
+
+        if mode == .audio {
+            audioService.startRecording()
+        } else {
+            isTextFieldFocused = true
+        }
+        collapseMenu()
+    }
+
+    private func selectCursorAreaAgain() {
+        guard mathService.captureMode == .cursorArea else { return }
+        CursorHighlightManager.shared.clearSelection()
+        repositionPanel()
+    }
+
+    private func closeSession() {
+        NotificationCenter.default.post(name: .dismissSession, object: nil)
+        mathService.currentResult = nil
+        questionText = ""
+        audioService.audioFileURL = nil
+        audioService.stopPreview()
+        collapseMenu()
     }
     
     private func repositionPanel() {
         DispatchQueue.main.async {
             if let panel = NSApplication.shared.windows.first(where: { $0 is FloatingPanel }) as? FloatingPanel {
-                panel.updateSizeAndPosition(isCollapsed: mathService.currentResult == nil)
+                let isCursorMode = mathService.captureMode == .cursorArea
+                let hasResult = mathService.currentResult != nil
+
+                if isCursorMode {
+                    let selectionFrame = CursorHighlightManager.shared.currentCaptureFrame
+                    panel.updateSizeAndPosition(
+                        isCollapsed: !hasResult,
+                        anchorRect: selectionFrame,
+                        anchorMode: .rightOfSelection
+                    )
+                } else {
+                    panel.updateSizeAndPosition(
+                        isCollapsed: !hasResult,
+                        anchorRect: nil
+                    )
+                }
             }
         }
     }
@@ -336,9 +612,66 @@ struct SessionView: View {
 
 // MARK: - Subviews
 
+struct HoverTrayLabel: View {
+    let icon: String
+    let title: String
+    let tint: Color
+    let isActive: Bool
+    @State private var isHovering = false
+    @State private var hoverWorkItem: DispatchWorkItem?
+
+    var body: some View {
+        HStack(spacing: isHovering ? 6 : 0) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .bold))
+                .frame(width: 16, height: 16)
+
+            if isHovering {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .lineLimit(1)
+                    .transition(.opacity.combined(with: .move(edge: .leading)))
+            }
+        }
+        .foregroundColor(isActive ? Theme.base : tint.opacity(0.92))
+        .frame(minWidth: 32)
+        .frame(height: 32)
+        .padding(.horizontal, isHovering ? 9 : 0)
+        .background(isActive ? tint.opacity(0.9) : tint.opacity(isHovering ? 0.16 : 0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(tint.opacity(isActive ? 0.22 : 0.18), lineWidth: 1.5)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 6))
+        .onHover { hovering in
+            hoverWorkItem?.cancel()
+
+            if hovering {
+                let workItem = DispatchWorkItem {
+                    withAnimation(Theme.morphSpring) {
+                        isHovering = true
+                    }
+                }
+                hoverWorkItem = workItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.28, execute: workItem)
+            } else {
+                withAnimation(Theme.morphSpring) {
+                    isHovering = false
+                }
+            }
+        }
+        .onDisappear {
+            hoverWorkItem?.cancel()
+            isHovering = false
+        }
+    }
+}
+
 struct ResultPageContentView: View {
     let result: TutoringResult
     var mathService: MathService
+    let onResize: () -> Void
     @State private var problemMathState: MathViewState = .loading
     
     var body: some View {
@@ -365,9 +698,7 @@ struct ResultPageContentView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 32) {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text(result.problemSummary)
-                            .font(.system(size: 24, weight: .bold, design: .default))
-                            .foregroundColor(Theme.textPrimary)
+                        MathText(text: result.problemSummary, fontSize: 24, fontWeight: .bold, foregroundColor: Theme.textPrimary)
                         
                         if let latex = result.parsedExpressionLatex, !latex.isEmpty, latex.lowercased() != "n/a" {
                             VStack(alignment: .center) {
@@ -411,7 +742,7 @@ struct ResultPageContentView: View {
                     
                     Divider().background(Theme.border)
                     
-                    FooterView(result: result, mathService: mathService)
+                    FooterView(result: result, mathService: mathService, onResize: onResize)
                 }
                 .padding(EdgeInsets(top: 0, leading: 40, bottom: 40, trailing: 40))
             }
@@ -443,19 +774,7 @@ struct StepView: View {
                     .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(Theme.border, lineWidth: 2))
             }
             
-            if let attributedString = try? AttributedString(markdown: step.explanationMarkdown, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
-                Text(attributedString)
-                    .font(.system(size: 15, weight: .regular))
-                    .lineSpacing(4)
-                    .foregroundColor(Theme.textPrimary.opacity(0.85))
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                Text(step.explanationMarkdown)
-                    .font(.system(size: 15, weight: .regular))
-                    .lineSpacing(4)
-                    .foregroundColor(Theme.textPrimary.opacity(0.85))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            MathText(text: step.explanationMarkdown)
             
             if let latex = step.latex, !latex.isEmpty, latex.lowercased() != "n/a" {
                 VStack(alignment: .center) {
@@ -494,38 +813,82 @@ struct StepView: View {
 struct FooterView: View {
     let result: TutoringResult
     @Bindable var mathService: MathService
+    let onResize: () -> Void
     @State private var hasCopied = false
+    @State private var showSummary = true
+    @State private var showDetails = false
+    @State private var summaryMathState: MathViewState = .loading
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 32) {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Final Answer")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(Theme.textSecondary)
-                
-                HStack {
-                    Text(result.finalAnswer)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(Theme.textPrimary)
+        VStack(alignment: .leading, spacing: 24) {
+            AccordionSection(
+                title: "Summary",
+                subtitle: "Short explanation",
+                isExpanded: $showSummary,
+                onToggle: onResize
+            ) {
+                SummaryRenderer(summary: result.summary, mathState: $summaryMathState)
+                    .padding(.top, 4)
+            }
+
+            AccordionSection(
+                title: "Details",
+                subtitle: "Final answer and concept notes",
+                isExpanded: $showDetails,
+                onToggle: onResize
+            ) {
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Final Answer")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Theme.textSecondary)
+                        
+                        HStack(alignment: .center, spacing: 12) {
+                            MathText(text: result.finalAnswer, fontSize: 18, fontWeight: .bold, foregroundColor: Theme.textPrimary)
+                            Spacer(minLength: 0)
+                            Button(action: {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(result.finalAnswer, forType: .string)
+                            }) {
+                                Image(systemName: "doc.on.doc")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(Theme.textSecondary)
+                                    .frame(width: 32, height: 32)
+                                    .background(Theme.base)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
+                            .buttonStyle(.plain)
+                        }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
-                    Spacer()
-                    Button(action: {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(result.finalAnswer, forType: .string)
-                    }) {
-                        Image(systemName: "doc.on.doc").font(.system(size: 14)).foregroundColor(Theme.textSecondary)
+                        .background(Theme.surface)
+                        .cornerRadius(Theme.cornerRadius)
+                        .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(Theme.border, lineWidth: 2))
                     }
-                    .buttonStyle(.plain).padding(.trailing, 16)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Concept")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(Theme.textSecondary)
+                        MathText(text: result.conceptSummary, fontSize: 14, fontWeight: .medium, foregroundColor: Theme.textPrimary.opacity(0.8))
+                    }
+                    
+                    if let verification = result.verification {
+                        HStack(spacing: 8) {
+                            Image(systemName: verification.status == "passed" ? "checkmark.circle.fill" : "questionmark.circle.fill")
+                                .foregroundColor(verification.status == "passed" ? .green : .orange)
+                            Text("Verification: \(verification.status.capitalized)")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(Theme.textSecondary)
+                        }
+                        .padding(.top, 4)
+                    }
                 }
-                .background(Theme.surface)
-                .cornerRadius(Theme.cornerRadius)
-                .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(Theme.border, lineWidth: 2))
             }
             
+            Divider().background(Theme.border)
+            
             HStack(spacing: 12) {
-                MinimalActionButton(title: "Simpler", icon: "sparkles") { mathService.refineAction(action: "simpler") }
-                MinimalActionButton(title: "Detailed", icon: "list.bullet.indent") { mathService.refineAction(action: "detailed") }
                 Spacer()
                 Button(action: copyFullExplanation) {
                     HStack(spacing: 6) {
@@ -546,32 +909,16 @@ struct FooterView: View {
                 }
                 .buttonStyle(.plain)
             }
-            
-            HStack(spacing: 20) {
-                Text(result.conceptSummary)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(Theme.textSecondary)
-                Spacer()
-                if let verification = result.verification {
-                    HStack(spacing: 6) {
-                        Image(systemName: verification.status == "passed" ? "checkmark.circle.fill" : "questionmark.circle.fill")
-                            .foregroundColor(verification.status == "passed" ? .green : .orange)
-                        Text(verification.status.capitalized)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(Theme.textSecondary)
-                    }
-                }
-            }
         }
     }
     
     private func copyFullExplanation() {
         var fullText = "# \(result.problemSummary)\n\n"
-        if let latex = result.parsedExpressionLatex { fullText += "## Problem\n$$\(latex)$)\n\n" }
+        if let latex = result.parsedExpressionLatex { fullText += "## Problem\n$$\n\(latex)\n$$\n\n" }
         fullText += "## Steps\n\n"
         for step in result.steps {
             fullText += "### \(step.title)\n\(step.explanationMarkdown)\n"
-            if let stepLatex = step.latex { fullText += "$$\(stepLatex)$)\n" }
+            if let stepLatex = step.latex { fullText += "$$\n\(stepLatex)\n$$\n" }
             fullText += "\n"
         }
         fullText += "## Final Answer\n**\(result.finalAnswer)**\n\n---\n*Generated by tumor*"
@@ -583,20 +930,60 @@ struct FooterView: View {
     }
 }
 
-struct MinimalActionButton: View {
-    let title: String; let icon: String; let action: () -> Void
+struct AccordionSection<Content: View>: View {
+    let title: String
+    let subtitle: String
+    @Binding var isExpanded: Bool
+    let onToggle: () -> Void
+    @ViewBuilder let content: Content
+
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: icon).font(.system(size: 12, weight: .semibold))
-                Text(title).font(.system(size: 12, weight: .medium))
+        VStack(alignment: .leading, spacing: 0) {
+            Button(action: toggle) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textPrimary)
+                        Text(subtitle)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                    Spacer()
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(Theme.textSecondary)
+                        .frame(width: 28, height: 28)
+                        .background(Theme.base)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .contentShape(Rectangle())
             }
-            .foregroundColor(Theme.textPrimary).padding(.horizontal, 12).padding(.vertical, 8)
-            .background(Theme.surface)
-            .cornerRadius(Theme.cornerRadius)
-            .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(Theme.border, lineWidth: 2))
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 16) {
+                    content
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
-        .buttonStyle(.plain)
+        .background(Theme.surface.opacity(0.45))
+        .cornerRadius(Theme.cornerRadius)
+        .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(Theme.border, lineWidth: 2))
+    }
+
+    private func toggle() {
+        withAnimation(Theme.morphSpring) {
+            isExpanded.toggle()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            onToggle()
+        }
     }
 }
 
@@ -618,5 +1005,144 @@ struct WaveformView: View {
         let baseHeight: CGFloat = 4
         let dynamicHeight = CGFloat(level) * 40 * multiplier
         return baseHeight + dynamicHeight
+    }
+}
+
+// MARK: - Math Text Renderer
+
+/// Renders text containing inline ($...$) and display ($$...$$) LaTeX as mixed Text + MathView.
+struct MathText: View {
+    let text: String
+    var fontSize: CGFloat = 15
+    var fontWeight: Font.Weight = .regular
+    var foregroundColor: Color = Theme.textPrimary.opacity(0.85)
+    var latexBackgroundColor: Color = Theme.surface.opacity(0.5)
+    var latexPadding: CGFloat = 12
+    var latexMinHeight: CGFloat = 40
+
+    @State private var renderStates: [Int: MathViewState] = [:]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(parsedComponents.indices, id: \.self) { index in
+                let component = parsedComponents[index]
+                switch component.kind {
+                case .text:
+                    if !component.content.isEmpty {
+                        if let attributed = try? AttributedString(
+                            markdown: component.content,
+                            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+                        ) {
+                            Text(attributed)
+                                .font(.system(size: fontSize, weight: fontWeight))
+                                .foregroundColor(foregroundColor)
+                                .lineSpacing(4)
+                                .fixedSize(horizontal: false, vertical: true)
+                        } else {
+                            Text(component.content)
+                                .font(.system(size: fontSize, weight: fontWeight))
+                                .foregroundColor(foregroundColor)
+                                .lineSpacing(4)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                case .inlineLatex:
+                    mathView(for: index, latex: component.content, inline: true)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                case .displayLatex:
+                    mathView(for: index, latex: component.content, inline: false)
+                        .padding(.horizontal, latexPadding)
+                        .padding(.vertical, 8)
+                        .frame(minHeight: latexMinHeight)
+                        .background(latexBackgroundColor)
+                        .cornerRadius(Theme.cornerRadius)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.cornerRadius)
+                                .stroke(Theme.border.opacity(0.5), lineWidth: 1)
+                        )
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func mathView(for index: Int, latex: String, inline: Bool) -> some View {
+        let state = Binding(
+            get: { renderStates[index] ?? .loading },
+            set: { renderStates[index] = $0 }
+        )
+        ZStack {
+            if case .loading = state.wrappedValue {
+                ProgressView().controlSize(.small)
+            }
+            if case .error(_) = state.wrappedValue {
+                Text(latex)
+                    .font(.system(size: fontSize - 1, weight: .medium, design: .monospaced))
+                    .foregroundColor(.red.opacity(0.7))
+            }
+            MathView(latex: latex, inline: inline, renderState: state)
+                .opacity(state.wrappedValue == .ready ? 1 : 0)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private enum ComponentKind { case text, inlineLatex, displayLatex }
+    private struct TextComponent { let kind: ComponentKind; let content: String }
+
+    private var parsedComponents: [TextComponent] {
+        var components: [TextComponent] = []
+        // Pattern matches: $$...$$ (display) or $...$ (inline, single-line, no $$)
+        let pattern = #"\$\$([^$]+)\$\$|\$([^$\n]+)\$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return [TextComponent(kind: .text, content: text)]
+        }
+
+        let range = NSRange(text.startIndex..., in: text)
+        let matches = regex.matches(in: text, options: [], range: range)
+        var lastEnd = text.startIndex
+
+        for match in matches {
+            // Text before this match
+            if let matchStart = Range(match.range, in: text)?.lowerBound, lastEnd < matchStart {
+                let snippet = String(text[lastEnd..<matchStart]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !snippet.isEmpty { components.append(TextComponent(kind: .text, content: snippet)) }
+            }
+            // Display math ($$...$$) is group 1, inline ($...$) is group 2
+            if let displayRange = Range(match.range(at: 1), in: text) {
+                let latex = String(text[displayRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !latex.isEmpty { components.append(TextComponent(kind: .displayLatex, content: latex)) }
+            } else if let inlineRange = Range(match.range(at: 2), in: text) {
+                let latex = String(text[inlineRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !latex.isEmpty { components.append(TextComponent(kind: .inlineLatex, content: latex)) }
+            }
+            if let matchEnd = Range(match.range, in: text)?.upperBound { lastEnd = matchEnd }
+        }
+        // Remaining text after last match
+        if lastEnd < text.endIndex {
+            let remaining = String(text[lastEnd...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            if !remaining.isEmpty { components.append(TextComponent(kind: .text, content: remaining)) }
+        }
+        if components.isEmpty && !text.isEmpty {
+            components.append(TextComponent(kind: .text, content: text))
+        }
+        return components
+    }
+}
+
+// MARK: - Summary Renderer
+
+struct SummaryRenderer: View {
+    let summary: String
+    @Binding var mathState: MathViewState // kept for caller compatibility
+
+    var body: some View {
+        MathText(
+            text: summary,
+            fontSize: 17,
+            fontWeight: .medium,
+            foregroundColor: Theme.textPrimary,
+            latexBackgroundColor: Theme.surface.opacity(0.3)
+        )
     }
 }

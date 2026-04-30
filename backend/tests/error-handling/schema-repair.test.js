@@ -93,8 +93,7 @@ describe('Schema Repair and Malformed LLM Handling (VAL-LLM-008)', () => {
     it('Partial missing LLM output gets defaults filled in', async () => {
         // Test that partial responses are repaired
         const response = await request('POST', '/api/tutor', {
-            questionText: 'solve x = 5',
-            action: 'simpler'
+            questionText: 'solve x = 5'
         });
 
         assert.strictEqual(response.status, 200);
@@ -111,8 +110,8 @@ describe('Schema Repair and Malformed LLM Handling (VAL-LLM-008)', () => {
     it('Confidence set to low when fallback defaults are used', async () => {
         // Test with various scenarios that might trigger defaults
         const testCases = [
-            { questionText: 'what is this', action: 'simpler' },
-            { questionText: 'solve it', action: 'detailed' }
+            { questionText: 'what is this' },
+            { questionText: 'solve it' }
         ];
 
         for (const testCase of testCases) {
