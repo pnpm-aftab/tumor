@@ -81,6 +81,7 @@ struct MathView: NSViewRepresentable {
                 }
                 .katex {
                     text-rendering: geometricPrecision;
+                    max-width: 100%;
                 }
                 .katex-html {
                     padding: 1px 0;
@@ -91,7 +92,10 @@ struct MathView: NSViewRepresentable {
                     overflow-y: hidden;
                 }
                 .katex-display > .katex {
-                    white-space: normal;
+                    display: inline-block;
+                    max-width: none;
+                    white-space: nowrap;
+                    transform-origin: center center;
                 }
                 #error {
                     color: #FF6B6B;
@@ -119,6 +123,11 @@ struct MathView: NSViewRepresentable {
                         return;
                     }
                     try {
+                        const mathEl = document.getElementById('math');
+                        mathEl.style.fontSize = "\(inline ? "1.02em" : "1.28em")";
+                        mathEl.style.transform = "none";
+                        mathEl.innerHTML = "";
+
                         katex.render(latex, document.getElementById('math'), {
                             throwOnError: true,
                             displayMode: \(inline ? "false" : "true"),
@@ -127,6 +136,8 @@ struct MathView: NSViewRepresentable {
                             maxSize: 12,
                             maxExpand: 1000
                         });
+
+                        fitRenderedMath();
                         
                         // Report success and height to Swift
                         const height = document.documentElement.scrollHeight;
@@ -140,6 +151,29 @@ struct MathView: NSViewRepresentable {
                             type: 'error',
                             message: e.message
                         });
+                    }
+                }
+
+                function fitRenderedMath() {
+                    const mathEl = document.getElementById('math');
+                    const katexEl = mathEl.querySelector('.katex');
+                    if (!katexEl || \(inline ? "true" : "false")) {
+                        return;
+                    }
+
+                    const availableWidth = Math.max(1, mathEl.clientWidth - 2);
+                    const renderedWidth = Math.max(katexEl.scrollWidth, katexEl.getBoundingClientRect().width);
+                    if (renderedWidth <= availableWidth) {
+                        return;
+                    }
+
+                    const currentSize = parseFloat(window.getComputedStyle(mathEl).fontSize);
+                    const scale = Math.max(0.62, Math.min(1, availableWidth / renderedWidth));
+                    mathEl.style.fontSize = (currentSize * scale) + "px";
+
+                    const resizedWidth = Math.max(katexEl.scrollWidth, katexEl.getBoundingClientRect().width);
+                    if (resizedWidth > availableWidth) {
+                        katexEl.style.transform = "scale(" + Math.max(0.52, availableWidth / resizedWidth) + ")";
                     }
                 }
                 
@@ -295,4 +329,3 @@ struct MathView: NSViewRepresentable {
         }
     }
 }
-

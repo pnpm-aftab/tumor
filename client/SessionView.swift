@@ -753,11 +753,14 @@ struct ResultPageContentView: View {
                                     MathView(latex: latex, inline: false, renderState: $problemMathState)
                                         .opacity(problemMathState == .ready ? 1 : 0)
                                         .allowsHitTesting(false)
+                                        .frame(maxWidth: .infinity)
                                 }
                                 .frame(minHeight: 88)
+                                .frame(maxWidth: .infinity)
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 12)
                             }
+                            .frame(maxWidth: .infinity)
                             .background(Theme.surface)
                             .cornerRadius(Theme.cornerRadius)
                             .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(Theme.border, lineWidth: 2))
@@ -829,11 +832,14 @@ struct StepView: View {
                         MathView(latex: latex, inline: false, renderState: $mathState)
                             .opacity(mathState == .ready ? 1 : 0)
                             .allowsHitTesting(false)
+                            .frame(maxWidth: .infinity)
                     }
                     .frame(minHeight: 78)
+                    .frame(maxWidth: .infinity)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
                 }
+                .frame(maxWidth: .infinity)
                 .background(Theme.surface.opacity(0.5))
                 .cornerRadius(Theme.cornerRadius)
                 .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(Theme.border, lineWidth: 2))
@@ -1087,6 +1093,7 @@ struct MathText: View {
                         .padding(.horizontal, latexPadding)
                         .padding(.vertical, 10)
                         .frame(minHeight: latexMinHeight)
+                        .frame(maxWidth: .infinity)
                         .background(latexBackgroundColor)
                         .cornerRadius(Theme.cornerRadius)
                         .overlay(
@@ -1116,7 +1123,9 @@ struct MathText: View {
             MathView(latex: latex, inline: inline, renderState: state)
                 .opacity(state.wrappedValue == .ready ? 1 : 0)
                 .allowsHitTesting(false)
+                .frame(maxWidth: inline ? nil : .infinity)
         }
+        .frame(maxWidth: inline ? nil : .infinity)
     }
 
     private enum ComponentKind { case text, inlineLatex, displayLatex }
