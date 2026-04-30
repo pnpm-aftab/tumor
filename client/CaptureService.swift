@@ -6,35 +6,32 @@ class CaptureService {
     static let shared = CaptureService()
     
     func captureFullScreen(completion: @escaping (NSImage?) -> Void) {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-        
-        let tempPath = NSTemporaryDirectory() + "math_fullscreen_\(UUID().uuidString).png"
-        task.arguments = ["-x", tempPath]
-        
-        do {
-            try task.run()
-            task.waitUntilExit()
-        } catch {
-            print("CaptureService: Failed to run screencapture: \(error)")
-            completion(nil)
-            return
-        }
-        
-        if FileManager.default.fileExists(atPath: tempPath) {
-            if let img = NSImage(contentsOfFile: tempPath) {
-                completion(img)
-            } else {
-                completion(nil)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+
+            let tempPath = NSTemporaryDirectory() + "math_fullscreen_\(UUID().uuidString).png"
+            task.arguments = ["-x", tempPath]
+            defer { try? FileManager.default.removeItem(atPath: tempPath) }
+
+            do {
+                try task.run()
+                task.waitUntilExit()
+            } catch {
+                print("CaptureService: Failed to run screencapture: \(error)")
+                DispatchQueue.main.async { completion(nil) }
+                return
             }
-            try? FileManager.default.removeItem(atPath: tempPath)
-        } else {
-            completion(nil)
+
+            let image = FileManager.default.fileExists(atPath: tempPath)
+                ? NSImage(contentsOfFile: tempPath)
+                : nil
+            DispatchQueue.main.async { completion(image) }
         }
     }
 
     func captureArea(frame: NSRect, completion: @escaping (NSImage?) -> Void) {
-        DispatchQueue.main.async {
+        DispatchQueue.global(qos: .userInitiated).async {
             let center = NSPoint(x: frame.midX, y: frame.midY)
 
             // Find the screen containing the center point for boundary clamping
@@ -56,7 +53,7 @@ class CaptureService {
 
             guard captureWidth > 0, captureHeight > 0 else {
                 print("CaptureService: Invalid capture dimensions (\(captureWidth), \(captureHeight))")
-                completion(nil)
+                DispatchQueue.main.async { completion(nil) }
                 return
             }
 
@@ -65,6 +62,7 @@ class CaptureService {
 
             let tempPath = NSTemporaryDirectory() + "math_cursor_area_\(UUID().uuidString).png"
             task.arguments = ["-x", "-R\(rectX),\(rectY),\(captureWidth),\(captureHeight)", tempPath]
+            defer { try? FileManager.default.removeItem(atPath: tempPath) }
 
             do {
                 try task.run()
@@ -72,26 +70,22 @@ class CaptureService {
 
                 guard task.terminationStatus == 0 else {
                     print("CaptureService: screencapture exited with status \(task.terminationStatus)")
-                    completion(nil)
+                    DispatchQueue.main.async { completion(nil) }
                     return
                 }
             } catch {
                 print("CaptureService: Failed to run screencapture: \(error)")
-                completion(nil)
+                DispatchQueue.main.async { completion(nil) }
                 return
             }
 
-            if FileManager.default.fileExists(atPath: tempPath) {
-                let img = NSImage(contentsOfFile: tempPath)
-                try? FileManager.default.removeItem(atPath: tempPath)
-                if img == nil {
-                    print("CaptureService: Failed to load captured image from \(tempPath)")
-                }
-                completion(img)
-            } else {
+            let image = FileManager.default.fileExists(atPath: tempPath)
+                ? NSImage(contentsOfFile: tempPath)
+                : nil
+            if image == nil {
                 print("CaptureService: Screenshot file not found at \(tempPath)")
-                completion(nil)
             }
+            DispatchQueue.main.async { completion(image) }
         }
     }
 }

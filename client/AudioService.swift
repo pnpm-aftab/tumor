@@ -113,6 +113,19 @@ class AudioService: NSObject, AVAudioRecorderDelegate, AVAudioPlayerDelegate {
         audioPlayer?.stop()
         isPlaying = false
     }
+
+    func discardRecording() {
+        stopPreview()
+        if isRecording {
+            audioRecorder?.stop()
+            stopMonitoring()
+            isRecording = false
+        }
+        if let audioFileURL {
+            try? FileManager.default.removeItem(at: audioFileURL)
+        }
+        audioFileURL = nil
+    }
     
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         isPlaying = false
@@ -125,6 +138,6 @@ class AudioService: NSObject, AVAudioRecorderDelegate, AVAudioPlayerDelegate {
     }
     
     deinit {
-        stopMonitoring()
+        discardRecording()
     }
 }

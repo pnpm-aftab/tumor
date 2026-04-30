@@ -69,6 +69,8 @@ class MathService {
     // Store original submission for refinement
     private var lastQuestion: String = ""
     private var lastBase64Image: String? = nil
+    private var activeRequestID = UUID()
+    private var activeDataTask: URLSessionDataTask?
     
     init() {
         self.recentQuestions = UserDefaults.standard.stringArray(forKey: "recentQuestions") ?? []
@@ -91,6 +93,9 @@ class MathService {
     }
     
     func submit(question: String, audioURL: URL? = nil, completion: @escaping () -> Void) {
+        let requestID = UUID()
+        activeRequestID = requestID
+        activeDataTask?.cancel()
         self.isLoading = true
         self.errorMessage = nil
         self.saveToHistory(question: question)
@@ -105,7 +110,7 @@ class MathService {
             if let img = base64Image { payload["screenshotImage"] = img }
             if let audio = base64Audio { payload["audioFile"] = audio }
             
-            self.sendRequest(payload: payload, completion: completion)
+            self.sendRequest(payload: payload, requestID: requestID, completion: completion)
         }
 
         var base64Audio: String? = nil
@@ -150,7 +155,7 @@ class MathService {
         }
     }
 
-    private func sendRequest(payload: [String: Any], completion: @escaping () -> Void) {
+    private func sendRequest(payload: [String: Any], requestID: UUID, completion: @escaping () -> Void) {
         guard let url = URL(string: "http://localhost:3000/api/tutor") else { return }
         
         var request = URLRequest(url: url)
@@ -169,10 +174,12 @@ class MathService {
         request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
         request.timeoutInterval = tutorRequestTimeoutSeconds
         
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        activeDataTask = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                guard requestID == self.activeRequestID else { return }
                 self.isLoading = false
+                self.activeDataTask = nil
                 
                 if let error = error {
                     print("Request error: \(error.localizedDescription)")
@@ -209,7 +216,8 @@ class MathService {
                     completion()
                 }
             }
-        }.resume()
+        }
+        activeDataTask?.resume()
     }
 
     private func applyFallbackResult() {

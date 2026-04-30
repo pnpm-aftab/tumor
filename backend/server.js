@@ -695,9 +695,27 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // CORS configuration
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:8000,http://127.0.0.1:8000')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
+    const origin = req.get('Origin');
+    if (!origin || allowedOrigins.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin || allowedOrigins[0] || 'http://localhost:8000');
+    }
+    next();
+});
+app.use(cors({
+    origin(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+            return;
+        }
+        callback(new Error('Not allowed by CORS'));
+    }
+}));
+app.use((req, res, next) => {
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Provider, X-OpenAI-API-Key, X-OpenRouter-API-Key');
     next();
@@ -766,7 +784,11 @@ const os = require('os');
 app.post('/api/tutor', validateTutorRequest, async (req, res) => {
     let { questionText, screenshotImage, audioFile } = req.body;
     const requestApiOverride = getRequestApiOverride(req);
-    console.log('Received /api/tutor request:', { questionText, hasImage: !!screenshotImage, hasAudio: !!audioFile });
+    console.log('Received /api/tutor request:', {
+        questionLength: questionText.length,
+        hasImage: !!screenshotImage,
+        hasAudio: !!audioFile
+    });
 
     try {
         let responseData;
@@ -776,7 +798,6 @@ app.post('/api/tutor', validateTutorRequest, async (req, res) => {
             try {
                 const transcription = await transcribeAudio(audioFile, requestApiOverride);
                 if (transcription) {
-                    console.log('Transcribed audio:', transcription);
                     questionText = transcription;
                 }
             } catch (transcribeError) {

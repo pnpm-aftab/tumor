@@ -80,8 +80,7 @@ struct SessionView: View {
         .padding(.top, 4)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .onExitCommand {
-            NotificationCenter.default.post(name: .dismissSession, object: nil)
-            mathService.currentResult = nil
+            closeSession()
         }
         .onChange(of: isMenuExpanded) { _, _ in repositionPanel() }
         .onChange(of: mathService.currentResult) { _, _ in repositionPanel() }
@@ -180,8 +179,7 @@ struct SessionView: View {
                     help: "Discard recording",
                     tint: Theme.accent,
                     action: {
-                        audioService.stopPreview()
-                        audioService.audioFileURL = nil
+                        audioService.discardRecording()
                         collapseMenu()
                     }
                 )
@@ -554,12 +552,7 @@ struct SessionView: View {
         mathService.errorMessage = nil
         mathService.clearImage()
         questionText = ""
-        audioService.stopPreview()
-
-        if audioService.isRecording {
-            audioService.stopRecording { _ in }
-        }
-        audioService.audioFileURL = nil
+        audioService.discardRecording()
 
         if mathService.captureMode == .cursorArea {
             CursorHighlightManager.shared.clearSelection()
@@ -587,8 +580,7 @@ struct SessionView: View {
         NotificationCenter.default.post(name: .dismissSession, object: nil)
         mathService.currentResult = nil
         questionText = ""
-        audioService.audioFileURL = nil
-        audioService.stopPreview()
+        audioService.discardRecording()
         collapseMenu()
     }
     
