@@ -970,6 +970,17 @@ h1 {
   .app-preview {
     margin: 0 auto;
   }
+  .floating-tag {
+    max-width: min(300px, 70vw);
+    white-space: normal;
+  }
+  .tag-1,
+  .tag-3 {
+    left: 0;
+  }
+  .tag-2 {
+    right: 0;
+  }
   .grid-3 {
     grid-template-columns: 1fr;
   }
@@ -1000,8 +1011,32 @@ h1 {
 }
 
 @media (max-width: 600px) {
+  :root {
+    --header-height: 58px;
+    --radius-lg: 24px;
+  }
+  .site-header {
+    height: var(--header-height);
+  }
+  .header-cta {
+    height: 32px;
+    padding: 0 14px;
+  }
+  .hero-wrapper {
+    padding-top: var(--header-height);
+  }
+  .hero {
+    gap: 28px;
+    padding: 48px 0 58px;
+    text-align: center;
+  }
   h1 {
-    font-size: 44px;
+    font-size: clamp(38px, 11vw, 44px);
+    letter-spacing: -0.03em;
+  }
+  .hero-text {
+    font-size: 16px;
+    margin-bottom: 22px;
   }
   .header-inner,
   .hero,
@@ -1069,8 +1104,43 @@ h1 {
   .button-primary, .button-secondary {
     width: 100%;
   }
+  .hero-visual {
+    justify-content: center;
+    width: 100%;
+  }
+  .app-preview-container {
+    max-width: min(100%, 340px);
+  }
+  .app-preview {
+    max-width: 100%;
+  }
+  .app-result-card {
+    border-radius: 26px;
+    gap: 14px;
+    padding: 16px 18px;
+  }
+  .result-title {
+    font-size: 18px;
+  }
+  .result-box {
+    padding: 12px;
+  }
+  .math-large {
+    font-size: 25px;
+  }
+  .app-input-pill {
+    max-width: 100%;
+    min-width: 0;
+    padding-left: 14px;
+  }
+  .icon-cmd,
+  .icon-capture,
+  .icon-submit {
+    flex: 0 0 32px;
+  }
   .floating-tag {
-    max-width: min(280px, 80vw);
+    max-width: min(260px, 78vw);
+    padding: 6px 12px;
     white-space: normal;
     text-align: left;
   }
@@ -1080,10 +1150,41 @@ h1 {
   }
   .tag-2 {
     right: 8px;
-    bottom: 28px;
+    bottom: -18px;
   }
   .tag-3 {
     left: 8px;
+    top: 47%;
+  }
+  .capture-strip {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .worksheet-preview {
+    min-height: 132px;
+    padding: 20px 14px;
+  }
+  .problem-equation {
+    font-size: clamp(34px, 12vw, 46px);
+  }
+  .main-demo-window {
+    min-height: 0;
+  }
+  .demo-answer h3 {
+    font-size: 34px;
+  }
+  .answer-step p,
+  .floating-command {
+    font-size: 12px;
+  }
+  .card {
+    border-radius: 20px;
+    padding: 22px;
+  }
+  [data-reveal] {
+    opacity: 1;
+    transform: translateY(0);
   }
   .footer-inner,
   .footer-links {
