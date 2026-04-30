@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="tumor is a lightweight macOS math tutor that reads text, voice, and screen context, then explains algebra and calculus step by step.">
+    <title>tumor.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-inner">
+        <div class="header-left">
+          <a class="brand" href="#top" aria-label="tumor home">
+            tumor<span>.</span>
+          </a>
+        </div>
+        
+        <nav class="nav-center">
+          <a class="nav-link" href="#features">Features</a>
+          <a class="nav-link" href="#download">Download</a>
+          <a class="nav-link" href="https://github.com/your-username/tumor" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </nav>
+
+        <div class="header-right">
+          <a class="header-cta" href="#download">Get the App</a>
+        </div>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-content" data-reveal>
+          <div class="tagline">Native macOS App</div>
+          <h1>Math tutoring.<br>On your desktop.</h1>
+          <p class="hero-text">
+            An uncompromising AI tutor that reads your screen, voice, and text to help you understand algebra and calculus step-by-step.
+          </p>
+          <div class="hero-actions">
+            <a class="button-primary" href="#download">Download for macOS</a>
+            <a class="button-secondary" href="https://github.com/your-username/tumor" target="_blank" rel="noopener noreferrer">View Source</a>
+          </div>
+        </div>
+
+        <div class="hero-visual" data-reveal>
+          <div class="app-mockup">
+            <!-- Floating Result Panel -->
+            <div class="app-panel" id="mockup-panel">
+              <div class="panel-close" id="mockup-close">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </div>
+              <div class="panel-content">
+                <h4 class="problem-summary">Solve the equation</h4>
+                <div class="math-box">
+                  <span class="math">2x² - 8 = 0</span>
+                </div>
+                
+                <div class="panel-divider"></div>
+                
+                <div class="step-view">
+                  <div class="step-header">
+                     <span class="step-title">1. Isolate x²</span>
+                     <span class="step-tag">algebra</span>
+                  </div>
+                  <p class="step-expl">Add 8 to both sides, then divide by 2.</p>
+                  <div class="math-box step-math">
+                     <span class="math">x² = 4</span>
+                  </div>
+                </div>
+                
+                <div class="panel-divider"></div>
+                
+                <div class="accordion">
+                  <div class="acc-info">
+                    <span class="acc-title">Details</span>
+                    <span class="acc-subtitle">Final answer and notes</span>
+                  </div>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Input Pill -->
+            <div class="app-pill">
+              <div class="pill-left">
+                <div class="icon-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12h16M4 6h16M4 18h16"/></svg></div>
+                <div class="icon-btn mode-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15c1.66 0 3-1.34 3-3V6c0-1.66-1.34-3-3-3S9 4.34 9 6v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 15 6.7 12H5c0 3.41 2.72 6.23 6 6.72V22h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg></div>
+              </div>
+              <input type="text" class="pill-input" id="mockup-input" placeholder="Ask a math question..." autocomplete="off" value="How do I solve 2x² - 8 = 0?">
+              <div class="pill-right">
+                <div class="icon-btn capture-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3h6v6H3zM15 3h6v6h-6zM15 15h6v6h-6zM3 15h6v6H3z"/></svg></div>
+                <button class="icon-btn submit-btn" id="mockup-submit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="features-section" id="features">
+        <div class="grid-3">
+          <div class="card" data-reveal>
+            <div class="card-icon">01</div>
+            <h3>Context-Aware</h3>
+            <p>Select a specific area or share your whole screen. The AI sees exactly what you are working on, making questions effortless without tab-switching.</p>
+          </div>
+          <div class="card" data-reveal>
+            <div class="card-icon">02</div>
+            <h3>Mathematical Verification</h3>
+            <p>Algebra and basic calculus checks run automatically through symbolic engines to provide mathematically sound, hallucination-free steps.</p>
+          </div>
+          <div class="card" data-reveal>
+            <div class="card-icon">03</div>
+            <h3>Local First</h3>
+            <p>Your recent questions stay locally available. No user accounts, no recurring subscriptions, and no mandatory cloud workspaces.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-brand">tumor<span>.</span></div>
+        <div class="footer-links">
+           <span>© 2026</span>
+           <a href="https://github.com/your-username/tumor">GitHub Repository</a>
+        </div>
+      </div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
