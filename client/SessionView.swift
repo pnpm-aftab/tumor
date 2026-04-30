@@ -38,9 +38,9 @@ struct SessionView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .background(Color.orange.opacity(0.1))
+                    .background(Theme.accentSoft)
                     .cornerRadius(Theme.cornerRadius)
-                    .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(Color.orange.opacity(0.3), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(Theme.accent.opacity(0.3), lineWidth: 1))
                     Spacer()
                 }
                 .padding(.top, 16)
@@ -135,13 +135,11 @@ struct SessionView: View {
                 isMenuExpanded.toggle()
             }
         }) {
-            HoverTrayLabel(
-                icon: "line.3.horizontal",
-                title: isMenuExpanded ? "Hide Menu" : "More",
-                tint: .gray,
+            BrandTrayLabel(
+                mark: "t.",
+                tint: Theme.textSecondary,
                 isActive: isMenuExpanded
             )
-                .rotationEffect(.degrees(isMenuExpanded ? 180 : 0))
         }
         .buttonStyle(.plain)
         .help(isMenuExpanded ? "Hide menu" : "Show menu")
@@ -152,7 +150,7 @@ struct SessionView: View {
             Button(action: {
                 isRecentPopoverPresented.toggle()
             }) {
-                HoverTrayLabel(icon: "clock.arrow.circlepath", title: "History", tint: .indigo, isActive: isRecentPopoverPresented)
+                HoverTrayLabel(icon: "clock.arrow.circlepath", title: "History", tint: Theme.textSecondary, isActive: isRecentPopoverPresented)
                     .help("Recent questions")
             }
             .buttonStyle(.plain)
@@ -165,7 +163,7 @@ struct SessionView: View {
                     icon: audioService.isPlaying ? "stop.fill" : "play.fill",
                     title: audioService.isPlaying ? "Stop Audio" : "Play Audio",
                     help: audioService.isPlaying ? "Stop preview" : "Play preview",
-                    tint: .green,
+                    tint: Theme.accent,
                     staysExpanded: true,
                     action: {
                         if audioService.isPlaying {
@@ -180,7 +178,7 @@ struct SessionView: View {
                     icon: "trash",
                     title: "Discard Audio",
                     help: "Discard recording",
-                    tint: .red,
+                    tint: Theme.accent,
                     action: {
                         audioService.stopPreview()
                         audioService.audioFileURL = nil
@@ -189,11 +187,7 @@ struct SessionView: View {
                 )
             }
 
-            if mathService.captureMode == .cursorArea {
-                trayButton(icon: "scope", title: "Reselect Area", help: "Select area again", tint: .cyan, action: selectCursorAreaAgain)
-            }
-
-            trayButton(icon: "plus", title: "New Session", help: "New session", tint: .mint, action: startNewSession)
+            trayButton(icon: "plus", title: "New Session", help: "New session", tint: Theme.textSecondary, action: startNewSession)
         }
         .padding(.leading, 2)
     }
@@ -259,9 +253,9 @@ struct SessionView: View {
     private var modeToggleButton: some View {
         Button(action: toggleMode) {
             HoverTrayLabel(
-                icon: mode == .text ? "keyboard.fill" : "mic.fill",
+                icon: mode == .text ? "mic.fill" : "keyboard.fill",
                 title: mode == .text ? "Use Voice" : "Use Text",
-                tint: mode == .text ? .blue : .pink,
+                tint: Theme.accent,
                 isActive: true
             )
         }
@@ -343,8 +337,8 @@ struct SessionView: View {
                     .foregroundColor(Theme.textSecondary)
                     .frame(width: 36, height: 36)
                     .background(Theme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.border, lineWidth: 2))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.controlRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.controlRadius).stroke(Theme.border, lineWidth: 2))
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
@@ -424,13 +418,21 @@ struct SessionView: View {
     @ViewBuilder
     private var actionButtons: some View {
         HStack(spacing: 8) {
+            if mathService.captureMode == .cursorArea {
+                Button(action: selectCursorAreaAgain) {
+                    HoverTrayLabel(icon: "scope", title: "Reselect Area", tint: Theme.accent, isActive: CursorHighlightManager.shared.isLocked)
+                }
+                .buttonStyle(.plain)
+                .help("Select area again")
+            }
+
             captureModeButton
 
             if mathService.isLoading {
                 ProgressView().controlSize(.small)
             } else if mode == .text && !questionText.isEmpty {
                 Button(action: submitQuestion) {
-                    HoverTrayLabel(icon: "arrow.up", title: "Ask", tint: .green, isActive: true)
+                    HoverTrayLabel(icon: "arrow.up", title: "Ask", tint: Theme.accent, isActive: true)
                 }
                 .buttonStyle(.plain)
                 .help("Ask tutor")
@@ -438,19 +440,19 @@ struct SessionView: View {
                 Button(action: {
                     audioService.stopRecording { _ in }
                 }) {
-                    HoverTrayLabel(icon: "stop.fill", title: "Stop Recording", tint: .red, isActive: true)
+                    HoverTrayLabel(icon: "stop.fill", title: "Stop Recording", tint: Theme.accent, isActive: true)
                 }
                 .buttonStyle(.plain)
                 .help("Stop recording")
             } else if mode == .audio && audioService.hasRecordedAudio {
                 Button(action: submitRecordedAudio) {
-                    HoverTrayLabel(icon: "arrow.up", title: "Send Audio", tint: .green, isActive: true)
+                    HoverTrayLabel(icon: "arrow.up", title: "Send Audio", tint: Theme.accent, isActive: true)
                 }
                 .buttonStyle(.plain)
                 .help("Send audio")
             } else {
                 Button(action: closeSession) {
-                    HoverTrayLabel(icon: "xmark", title: "Close", tint: .orange, isActive: false)
+                    HoverTrayLabel(icon: "xmark", title: "Close", tint: Theme.textSecondary, isActive: false)
                 }
                 .buttonStyle(.plain)
                 .help("Close session")
@@ -467,7 +469,7 @@ struct SessionView: View {
             HoverTrayLabel(
                 icon: captureModeIcon(mode: mathService.captureMode),
                 title: captureModeLabel(mode: mathService.captureMode),
-                tint: .teal,
+                tint: Theme.accent,
                 isActive: mathService.captureMode != .none
             )
         }
@@ -578,6 +580,10 @@ struct SessionView: View {
     }
 
     private func closeSession() {
+        if mathService.captureMode == .cursorArea {
+            CursorHighlightManager.shared.clearSelection()
+            CursorHighlightManager.shared.stop()
+        }
         NotificationCenter.default.post(name: .dismissSession, object: nil)
         mathService.currentResult = nil
         questionText = ""
@@ -638,12 +644,12 @@ struct HoverTrayLabel: View {
         .frame(height: 32)
         .padding(.horizontal, isHovering ? 9 : 0)
         .background(isActive ? tint.opacity(0.9) : tint.opacity(isHovering ? 0.16 : 0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.controlRadius))
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: Theme.controlRadius)
                 .stroke(tint.opacity(isActive ? 0.22 : 0.18), lineWidth: 1.5)
         )
-        .contentShape(RoundedRectangle(cornerRadius: 6))
+        .contentShape(RoundedRectangle(cornerRadius: Theme.controlRadius))
         .onHover { hovering in
             hoverWorkItem?.cancel()
 
@@ -665,6 +671,28 @@ struct HoverTrayLabel: View {
             hoverWorkItem?.cancel()
             isHovering = false
         }
+    }
+}
+
+struct BrandTrayLabel: View {
+    let mark: String
+    let tint: Color
+    let isActive: Bool
+
+    var body: some View {
+        Text(mark)
+            .font(.system(size: 13, weight: .bold, design: .rounded))
+            .frame(width: 16, height: 16)
+        .foregroundColor(isActive ? Theme.base : tint.opacity(0.92))
+        .frame(minWidth: 32)
+        .frame(height: 32)
+        .background(isActive ? tint.opacity(0.9) : tint.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.controlRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.controlRadius)
+                .stroke(tint.opacity(isActive ? 0.22 : 0.18), lineWidth: 1.5)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: Theme.controlRadius))
     }
 }
 
@@ -900,12 +928,12 @@ struct FooterView: View {
                             Image(systemName: "doc.on.doc").font(.system(size: 12, weight: .semibold))
                         }
                     }
-                    .foregroundColor(hasCopied ? .green : Theme.textPrimary)
+                    .foregroundColor(hasCopied ? Theme.accent : Theme.textPrimary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(hasCopied ? Color.green.opacity(0.1) : Theme.surface)
+                    .background(hasCopied ? Theme.accentSoft : Theme.surface)
                     .cornerRadius(Theme.cornerRadius)
-                    .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(hasCopied ? Color.green.opacity(0.3) : Theme.border, lineWidth: 2))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius).stroke(hasCopied ? Theme.accent.opacity(0.3) : Theme.border, lineWidth: 2))
                 }
                 .buttonStyle(.plain)
             }

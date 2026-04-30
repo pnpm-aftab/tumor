@@ -7,7 +7,7 @@ struct TumorApp: App {
     @State private var mathService = MathService()
 
     var body: some Scene {
-        MenuBarExtra("tumor", systemImage: "brain.head.profile") {
+        MenuBarExtra {
             Button("New Text Session") {
                 appDelegate.startSession(mode: .text)
             }
@@ -28,9 +28,23 @@ struct TumorApp: App {
 
             Divider()
 
+            Button("Set API Provider & Key...") {
+                appDelegate.promptForAPIKey()
+            }
+
+            Button("Clear Selected API Key") {
+                appDelegate.clearSelectedAPIKey()
+            }
+            .disabled(!appDelegate.mathService.hasSelectedAPIKey)
+
+            Divider()
+
             Button("Quit") {
                 NSApplication.shared.terminate(nil)
             }
+        } label: {
+            Text("t.")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
         }
     }
 }

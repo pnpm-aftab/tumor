@@ -62,6 +62,9 @@ class MathService {
     var screenContextStatus: String = "Screen context is captured automatically when you send."
     var captureMode: ScreenCaptureMode = .fullscreen
     var lastSubmittedCaptureFrame: NSRect?
+    var hasSelectedAPIKey: Bool {
+        APIKeyStore.loadKey() != nil
+    }
     
     // Store original submission for refinement
     private var lastQuestion: String = ""
@@ -124,13 +127,13 @@ class MathService {
                 }
             }
         } else if self.captureMode == .cursorArea {
+            CursorHighlightManager.shared.persistSelection(frame: CursorHighlightManager.shared.currentCaptureFrame)
             let captureFrame = CursorHighlightManager.shared.currentCaptureFrame
             self.lastSubmittedCaptureFrame = captureFrame
-            CursorHighlightManager.shared.persistSelection(frame: captureFrame)
-            // Keep cursor highlight persistent - don't stop it during capture
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            CursorHighlightManager.shared.hideDuringCapture { restoreHighlight in
                 CaptureService.shared.captureArea(frame: captureFrame) { [weak self] img in
                     DispatchQueue.main.async {
+                        defer { restoreHighlight() }
                         guard let self else { return }
                         self.capturedImage = img
                         let base64Image = self.base64Png(from: img)
@@ -138,7 +141,6 @@ class MathService {
                             ? "Cursor area context could not be captured."
                             : "Cursor area context captured."
                         processSubmission(base64Image, base64Audio)
-                        // Cursor highlight remains active throughout the session
                     }
                 }
             }
@@ -154,6 +156,16 @@ class MathService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        let provider = APIKeyStore.selectedProvider
+        if let apiKey = APIKeyStore.loadKey(for: provider) {
+            request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            request.addValue(provider.rawValue, forHTTPHeaderField: "X-API-Provider")
+            if provider == .openAI {
+                request.addValue(apiKey, forHTTPHeaderField: "X-OpenAI-API-Key")
+            } else {
+                request.addValue(apiKey, forHTTPHeaderField: "X-OpenRouter-API-Key")
+            }
+        }
         request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
         request.timeoutInterval = tutorRequestTimeoutSeconds
         

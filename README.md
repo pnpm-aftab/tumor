@@ -1,84 +1,143 @@
 # tumor
 
-A menu bar macOS math app with a floating session panel and a Node.js backend for solving, explaining, and verifying algebra/calculus work.
+tumor is a native macOS menu bar app for math tutoring. It accepts typed questions, microphone input, and screen context, then returns step-by-step algebra and calculus explanations with structured verification from a local Node.js backend.
 
-## Current Status
+Repository: https://github.com/pnpm-aftab/tumor
 
-The project is in a complete and verified state.
+## Features
 
-- The macOS client builds successfully with Swift Package Manager.
-- The backend test suite is passing end to end (255 tests across 19 files).
-- Text, screenshot-assisted, refinement, and audio-transcription flows are fully implemented.
-- Symbolic verification is active for algebra (linear, quadratic, simplification) and calculus (derivatives, integrals).
-- UI/UX features a modern Glassmorphism theme with a persistent notebook-page aesthetic.
+- Native SwiftUI macOS menu bar app
+- Floating tutoring panel for quick text, audio, and screen-context sessions
+- Full-screen and cursor-area screenshot capture
+- Audio recording with optional OpenAI transcription
+- Markdown and KaTeX rendering for mathematical explanations
+- Refinement actions for simpler or more detailed responses
+- Local recent-question history
+- Symbolic verification for linear equations, quadratics, simplification, derivatives, and integrals
+- Provider support for direct OpenAI Responses API calls or OpenRouter-compatible chat completions
+- Mock-mode fallback for local development and automated tests
 
-Verified locally on April 30, 2026:
-
-- `swift build` succeeded
-- `cd backend && npm test` succeeded (255 tests passed across 19 test files)
-- `backend/tests/integration/screenshot-calculus-ocr.test.js` verified OCR logic
-
-## Architecture
+## Project Structure
 
 ```text
-client/   SwiftUI macOS app
-backend/  Node.js/Express tutoring API
+client/       SwiftUI macOS app
+backend/      Node.js/Express tutoring API and verification engine
+docs/         Static landing page
+skills/       Development assistant skills used by this repository
+Package.swift Swift Package Manager manifest for the macOS app
+run-dev.sh    Convenience script for local full-stack development
 ```
 
-### Client
+## Requirements
 
-The macOS app includes:
+- macOS 14 or newer
+- Xcode or Swift toolchain with Swift 5.9 support
+- Node.js 20 or newer
+- npm
+- Screen Recording permission for screenshot-assisted questions
+- Microphone permission for audio sessions
 
-- `MenuBarExtra` entry point for starting text, audio, and screen-context sessions
-- A borderless floating `NSPanel` session UI that morphs between "Pill" and "Result Page" modes
-- Text input and automatic full-screen context capture on submit
-- Audio recording with backend transcription and local preview playback
-- Rich result rendering using `MathText` (Markdown + KaTeX)
-- Refinement actions for simpler and more detailed explanations
-- Symbolic verification status display and copy actions (Final Answer & Full Explanation)
-- Global hotkeys (Cmd+Shift+T/A/1) and recent-question menu
-- Visual cursor-area capture mode with a persistent 800x800 highlight overlay
+An API key is optional for local development. Without an app-provided key, `OPENAI_API_KEY`, or `OPENROUTER_API_KEY`, the backend runs in mock mode.
 
-Key files:
+## Quick Start
 
-- `client/TumorApp.swift` - menu bar app entry point
-- `client/TumorAppDelegate.swift` - app lifecycle and session startup
-- `client/SessionView.swift` - primary session UI and result page
-- `client/FloatingPanel.swift` - floating panel window behavior
-- `client/MathService.swift` - client networking, history, and refinements
-- `client/CaptureService.swift` - screen context capture modes
-- `client/CursorHighlightManager.swift` - visual overlay for cursor area capture
-- `client/AudioService.swift` - microphone recording
-- `client/MathView.swift` - KaTeX rendering via `WKWebView`
-- `client/Theme.swift` - app styling tokens and shared visual modifiers
+Clone the repository:
 
-### Backend
+```bash
+git clone https://github.com/pnpm-aftab/tumor.git
+cd tumor
+```
 
-The backend accepts tutoring requests, optionally transcribes audio, validates and repairs model output, and runs symbolic verification.
+Run the full development stack:
 
-Key features:
+```bash
+./run-dev.sh
+```
 
-- Direct OpenAI Responses API support via the OpenAI SDK
-- OpenRouter-compatible chat completions support for the fallback provider path
-- Optional direct OpenAI transcription for audio uploads
-- Zod request validation and response repair
-- Heuristic fallback responses in mock mode or on some upstream failures
-- Symbolic verification for linear equations, quadratics, simplification, derivatives, and integrals
-- Screenshot/image handling with confidence-aware extraction behavior
-- Stateless refinement requests
-- Health endpoints and structured error handling
+The script installs backend dependencies when needed, loads `backend/.env` if present, starts the backend on `http://localhost:3000`, waits for `/health`, and launches the macOS menu bar app.
 
-Key files:
+## Configuration
 
-- `backend/server.js` - Express API, model calls, validation, fallback logic
-- `backend/verification.js` - symbolic verification engine
-- `backend/tests/` - contract, integration, error-handling, and verification tests
+You can set an OpenAI or OpenRouter API key directly from the macOS menu bar app:
+
+1. Open the tumor menu bar icon.
+2. Select `Set API Provider & Key...`.
+3. Choose `OpenAI` or `OpenRouter`.
+4. Paste the key and save.
+
+The app stores the selected provider and key in macOS Keychain and sends it only to the local tumor backend as request headers. This is the easiest option when running the bundled macOS client against the local backend.
+
+Alternatively, create `backend/.env` for backend-level provider credentials:
+
+```bash
+OPENAI_API_KEY=your_openai_key
+# or
+OPENROUTER_API_KEY=your_openrouter_key
+
+LLM_MODEL=your_model_name
+OPENAI_MODEL=your_openai_model_name
+OPENROUTER_MODEL=your_openrouter_model_name
+PORT=3000
+```
+
+Environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | unset | Enables direct OpenAI Responses API calls and audio transcription |
+| `OPENROUTER_API_KEY` | unset | Enables the OpenRouter-compatible provider path |
+| `LLM_MODEL` | provider-dependent | Model identifier passed to the active provider |
+| `OPENAI_MODEL` | `gpt-5.4-nano` | Optional model override for app-supplied OpenAI keys |
+| `OPENROUTER_MODEL` | `openrouter/elephant-alpha` | Optional model override for app-supplied OpenRouter keys |
+| `PORT` | `3000` | Backend HTTP port |
+
+Provider behavior:
+
+- An API key supplied by the app takes precedence for that request and uses the provider selected in the app.
+- `OPENAI_API_KEY` takes precedence when both backend-level provider keys are set.
+- OpenAI-backed tutoring calls use the Responses API.
+- OpenRouter-backed tutoring calls use chat completions for compatibility.
+- Audio transcription uses the OpenAI SDK with `gpt-4o-mini-transcribe` and requires a valid `OPENAI_API_KEY`.
+- Mock mode is active in tests, when no provider key is set, or when a configured key is blank or placeholder-like.
+
+## Running Manually
+
+Install and start the backend:
+
+```bash
+cd backend
+npm install
+OPENAI_API_KEY=your_openai_key node server.js
+```
+
+Or run with OpenRouter:
+
+```bash
+cd backend
+OPENROUTER_API_KEY=your_openrouter_key node server.js
+```
+
+Run in mock mode:
+
+```bash
+cd backend
+node server.js
+```
+
+Start the macOS client from the repository root:
+
+```bash
+swift build
+swift run tumor
+```
+
+The client currently sends tutor requests to `http://localhost:3000/api/tutor`.
 
 ## API
 
 ### `POST /api/tutor`
 
-Request body:
+Request:
 
 ```json
 {
@@ -88,14 +147,7 @@ Request body:
 }
 ```
 
-Notes:
-
-- `questionText` is required, must be a non-empty string, and is limited to 2000 characters.
-- `screenshotImage` is optional and must be a string if present; the client sends base64-encoded image data.
-- `audioFile` is optional and must be a string if present; the client sends base64-encoded audio data.
-- Refinements are stateless client requests that resend the original question/context with a revised prompt.
-
-Response shape:
+Response:
 
 ```json
 {
@@ -115,103 +167,35 @@ Response shape:
   "confidence": "high",
   "verification": {
     "status": "passed",
-    "notes": [
-      "Substitution confirms the result."
-    ]
+    "notes": ["Substitution confirms the result."]
   }
 }
 ```
 
-### Health Endpoints
+Request notes:
 
-- `GET /api/health`
+- `questionText` is required, must be a non-empty string, and is limited to 2000 characters.
+- `screenshotImage` is optional and must be a base64-encoded string when present.
+- `audioFile` is optional and must be a base64-encoded string when present.
+- Refinement requests are stateless; the client resends the original question and context with a revised prompt.
+
+### Health Checks
+
 - `GET /health`
+- `GET /api/health`
 
 Both return JSON with `status: "ok"` and a timestamp.
 
-## Environment
-
-Backend environment variables:
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `OPENROUTER_API_KEY` | unset | Enables OpenRouter-backed tutoring calls |
-| `OPENAI_API_KEY` | unset | Enables direct OpenAI Responses API calls when preferred |
-| `LLM_MODEL` | provider-dependent | Model identifier passed to the selected provider |
-| `PORT` | `3000` | Backend port |
-
-Behavior notes:
-
-- Mock mode is active when `NODE_ENV=test`, no provider key is set, or the selected key is blank/placeholder.
-- `OPENAI_API_KEY` takes precedence over `OPENROUTER_API_KEY` when both are set.
-- Direct OpenAI requests use the Responses API when `OPENAI_API_KEY` is set; the OpenRouter provider path uses chat completions for compatibility.
-- Audio transcription currently calls the OpenAI transcription endpoint through the OpenAI SDK with `gpt-4o-mini-transcribe` and only runs when a valid API key is configured.
-- The backend LLM timeout is 50 seconds, and the client request timeout is intentionally longer to avoid discarding late but valid responses.
-
-## Running The Project
-
-### Backend
-
-```bash
-cd backend
-npm install
-OPENROUTER_API_KEY=your_key_here node server.js
-```
-
-If you prefer:
-
-```bash
-cd backend
-OPENAI_API_KEY=your_key_here node server.js
-```
-
-Or:
-
-```bash
-cd backend
-node server.js
-```
-
-The backend listens on `http://localhost:3000` by default.
-
-### Full Development Script
-
-From the repo root:
-
-```bash
-./run-dev.sh
-```
-
-This loads `backend/.env` if present, installs backend dependencies when missing, starts the backend, waits for `/health`, and then runs the macOS app.
-
-### macOS Client
-
-From the repo root:
-
-```bash
-swift build
-swift run tumor
-```
-
-Requirements:
-
-- macOS 14+
-- Xcode / Swift toolchain with Swift 5.9 support
-- Screen Recording permission for screenshot-assisted use
-- Microphone permission for audio sessions
-
-The client currently targets `http://localhost:3000/api/tutor`.
-
 ## Testing
 
-Backend tests use Node's built-in test runner and run sequentially through the `npm test` script.
+Run the backend test suite:
 
 ```bash
 cd backend
 npm test
 ```
 
-Examples:
+Run selected tests:
 
 ```bash
 cd backend
@@ -219,34 +203,77 @@ node --test tests/contract/request-validation.test.js
 node --test tests/integration/e2e-flows.test.js
 ```
 
-Coverage areas include:
+Build the macOS app:
 
-- request validation
-- response shape and schema repair
-- concurrency and statelessness
-- screenshot handling
-- end-to-end tutoring flows
-- symbolic verification
-- error handling and recovery
+```bash
+swift build
+```
 
-Focused diagnostic coverage now lives under `backend/tests/verification/`.
+Current verified baseline, checked locally on April 30, 2026:
 
-## Hotkeys And UX
+- `swift build` passed
+- `cd backend && npm test` passed
+- Backend suite covered 255 tests across 19 test files
 
-The app uses a menu bar entry as the primary launcher and opens a temporary floating session component after a session begins.
+## macOS Permissions
 
-Configured global hotkeys:
+tumor requests permissions only for features that need them:
 
-- menu bar shortcuts for starting text, audio, and screen-context sessions
-- additional global Carbon hotkeys registered in `client/HotkeyManager.swift`
+- Screen Recording: required for screenshot-assisted tutoring
+- Microphone: required for audio questions
 
-If you change hotkeys, update both:
+If screenshot or audio capture fails, check macOS System Settings under Privacy & Security and relaunch the app after granting access.
+
+## Key Files
+
+Client:
+
+- `client/TumorApp.swift` - menu bar app entry point
+- `client/TumorAppDelegate.swift` - app lifecycle and session startup
+- `client/SessionView.swift` - primary session UI and result page
+- `client/FloatingPanel.swift` - floating panel window behavior
+- `client/MathService.swift` - client networking, local history, and refinements
+- `client/CaptureService.swift` - screen context capture modes
+- `client/CursorHighlightManager.swift` - cursor-area capture overlay
+- `client/AudioService.swift` - microphone recording
+- `client/MathView.swift` - KaTeX rendering via `WKWebView`
+- `client/Theme.swift` - app styling tokens and shared visual modifiers
+
+Backend:
+
+- `backend/server.js` - Express API, provider calls, validation, fallback logic, and response repair
+- `backend/verification.js` - symbolic verification engine
+- `backend/tests/` - contract, integration, error-handling, and verification coverage
+
+## Hotkeys
+
+The app uses a menu bar entry as the primary launcher and registers additional global Carbon hotkeys for fast session startup.
+
+If hotkeys change, update both:
 
 - `client/HotkeyManager.swift`
 - `client/HotkeyConstants.swift`
 
-## Repository Notes
+## Landing Page
 
-- `todo.md` tracks implementation milestones.
-- `math-tutor-prd.md` contains the original product requirements.
-- `skills/` contains specialized agent skills for development (e.g., `swiftui-expert-skill`).
+The static landing page lives in `docs/` and can be served by GitHub Pages or any static host.
+
+For local preview:
+
+```bash
+cd docs
+python3 -m http.server 8000
+```
+
+Then open `http://localhost:8000`.
+
+## Deployment Notes
+
+- The backend is stateless and can run behind a standard HTTP reverse proxy.
+- Configure provider keys as environment variables in the target runtime.
+- Keep request body limits aligned with expected screenshot and audio payload sizes.
+- The macOS client currently assumes the backend is available at `http://localhost:3000/api/tutor`; update `client/MathService.swift` before distributing builds that should call a hosted backend.
+
+## License
+
+The backend package currently declares `ISC` in `backend/package.json`. Confirm the intended repository-level license before publishing release artifacts.

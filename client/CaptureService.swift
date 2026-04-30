@@ -34,8 +34,7 @@ class CaptureService {
     }
 
     func captureArea(frame: NSRect, completion: @escaping (NSImage?) -> Void) {
-        // Brief delay to allow any UI (like the highlight window) to disappear from the screen buffer
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+        DispatchQueue.main.async {
             let center = NSPoint(x: frame.midX, y: frame.midY)
 
             // Find the screen containing the center point for boundary clamping
@@ -96,4 +95,3 @@ class CaptureService {
         }
     }
 }
-

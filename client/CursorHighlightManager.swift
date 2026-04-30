@@ -12,8 +12,8 @@ class CursorHighlightWindow: NSWindow {
         )
         self.isOpaque = false
         self.backgroundColor = .clear
-        self.level = .normal
-        self.ignoresMouseEvents = true
+        self.level = .floating
+        self.ignoresMouseEvents = false
         self.hasShadow = false
 
         let view = CursorHighlightView(frame: contentRect)
@@ -23,6 +23,13 @@ class CursorHighlightWindow: NSWindow {
 
 class CursorHighlightView: NSView {
     var isLocked = false
+    var onMouseDown: (() -> Void)?
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        onMouseDown?()
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
@@ -147,6 +154,9 @@ class CursorHighlightManager {
 
         if window == nil {
             window = CursorHighlightWindow(size: captureAreaSize)
+            (window?.contentView as? CursorHighlightView)?.onMouseDown = { [weak self] in
+                self?.handleClick()
+            }
         }
 
         if let selectedFrame {
@@ -176,6 +186,7 @@ class CursorHighlightManager {
         guard isActive else { return }
         isActive = false
         isLocked = false
+        selectedFrame = nil
 
         window?.orderOut(nil)
         if let mm = moveGlobalMonitor {
@@ -193,16 +204,33 @@ class CursorHighlightManager {
     }
 
     func persistSelection(frame: NSRect) {
-        selectedFrame = frame
+        let clampedFrame = clampFrameToScreen(frame)
+        selectedFrame = clampedFrame
 
         guard let window else { return }
         isLocked = true
         removeMovementMonitors()
-        window.setFrame(frame, display: true, animate: false)
+        window.setFrame(clampedFrame, display: true, animate: false)
         (window.contentView as? CursorHighlightView)?.isLocked = true
         window.contentView?.needsDisplay = true
-        onSelectionLocked?(frame)
-        onFrameChanged?(frame)
+        onSelectionLocked?(clampedFrame)
+        onFrameChanged?(clampedFrame)
+    }
+
+    func hideDuringCapture(_ capture: @escaping (@escaping () -> Void) -> Void) {
+        let wasVisible = window?.isVisible == true
+        if wasVisible {
+            window?.orderOut(nil)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+            capture {
+                DispatchQueue.main.async {
+                    guard wasVisible, self?.isActive == true else { return }
+                    self?.window?.orderFront(nil)
+                }
+            }
+        }
     }
 
     func clearSelection() {
@@ -289,13 +317,30 @@ class CursorHighlightManager {
         let mouseLoc = NSEvent.mouseLocation
         let halfSize = captureAreaSize / 2
 
-        let windowFrame = NSRect(
+        let proposedFrame = NSRect(
             x: mouseLoc.x - halfSize,
             y: mouseLoc.y - halfSize,
             width: captureAreaSize,
             height: captureAreaSize
         )
+        let windowFrame = clampFrameToScreen(proposedFrame, point: mouseLoc)
         window?.setFrame(windowFrame, display: true, animate: false)
         onFrameChanged?(windowFrame)
+    }
+
+    private func clampFrameToScreen(_ frame: NSRect, point: NSPoint? = nil) -> NSRect {
+        let targetPoint = point ?? NSPoint(x: frame.midX, y: frame.midY)
+        let targetScreen = NSScreen.screens.first(where: { screen in
+            NSMouseInRect(targetPoint, screen.frame, false)
+        }) ?? NSScreen.main ?? NSScreen.screens.first
+
+        guard let screenFrame = targetScreen?.frame else { return frame }
+
+        let width = min(frame.width, screenFrame.width)
+        let height = min(frame.height, screenFrame.height)
+        let x = max(screenFrame.minX, min(frame.origin.x, screenFrame.maxX - width))
+        let y = max(screenFrame.minY, min(frame.origin.y, screenFrame.maxY - height))
+
+        return NSRect(x: x, y: y, width: width, height: height)
     }
 }

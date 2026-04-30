@@ -47,6 +47,56 @@ class TumorAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func promptForAPIKey() {
+        NSApplication.shared.activate(ignoringOtherApps: true)
+
+        let alert = NSAlert()
+        alert.messageText = "Set API Provider & Key"
+        alert.informativeText = "Choose OpenAI or OpenRouter. The key is stored in your macOS Keychain and sent only to the local tumor backend for tutor requests."
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+
+        let providerPicker = NSPopUpButton(frame: NSRect(x: 0, y: 34, width: 360, height: 26), pullsDown: false)
+        for provider in APIKeyStore.Provider.allCases {
+            providerPicker.addItem(withTitle: provider.displayName)
+            providerPicker.lastItem?.representedObject = provider.rawValue
+        }
+        providerPicker.selectItem(withTitle: APIKeyStore.selectedProvider.displayName)
+
+        let secureField = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
+        secureField.placeholderString = APIKeyStore.loadKey() == nil ? "Paste API key..." : "Existing key saved. Enter a new key to replace it."
+
+        let stack = NSView(frame: NSRect(x: 0, y: 0, width: 360, height: 64))
+        stack.addSubview(providerPicker)
+        stack.addSubview(secureField)
+        alert.accessoryView = stack
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        let selectedRawValue = providerPicker.selectedItem?.representedObject as? String
+        let provider = selectedRawValue.flatMap(APIKeyStore.Provider.init(rawValue:)) ?? .openAI
+
+        do {
+            try APIKeyStore.saveKey(secureField.stringValue, for: provider)
+        } catch {
+            showAPIKeyError(error.localizedDescription)
+        }
+    }
+
+    func clearSelectedAPIKey() {
+        APIKeyStore.clearKey()
+    }
+
+    private func showAPIKeyError(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = "Could Not Save API Key"
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
     @objc private func handleStartText() {
         startSession(mode: .text)
     }

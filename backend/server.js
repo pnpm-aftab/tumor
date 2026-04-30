@@ -544,8 +544,29 @@ function finalizeTutorResponse(candidateResponse, requestContext) {
     });
 }
 
-function getApiConfig() {
-    const apiKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
+function getRequestApiOverride(req) {
+    const requestedProvider = String(req.get('x-api-provider') || '').trim().toLowerCase();
+    const openAIKey = req.get('x-openai-api-key');
+    const openRouterKey = req.get('x-openrouter-api-key');
+    const authorization = req.get('authorization') || '';
+    const bearerMatch = authorization.match(/^Bearer\s+(.+)$/i);
+    const bearerKey = bearerMatch ? bearerMatch[1] : null;
+    const provider = requestedProvider === 'openrouter' ? 'openrouter' : 'openai';
+    const apiKey = provider === 'openrouter'
+        ? (openRouterKey || bearerKey)
+        : (openAIKey || bearerKey);
+
+    return {
+        provider,
+        apiKey: typeof apiKey === 'string' ? apiKey.trim() : null
+    };
+}
+
+function getApiConfig(requestOverride = null) {
+    const requestApiKey = requestOverride && requestOverride.apiKey;
+    const requestProvider = requestOverride && requestOverride.provider;
+    const apiKey = requestApiKey || process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
+    const hasRequestApiKey = !!requestApiKey;
     const isMockMode = (
         process.env.NODE_ENV === 'test' ||
         !apiKey ||
@@ -553,19 +574,22 @@ function getApiConfig() {
         apiKey === 'your_key_here' ||
         apiKey === 'none'
     );
-    const isOpenAI = !!process.env.OPENAI_API_KEY;
+    const isOpenAI = hasRequestApiKey ? requestProvider !== 'openrouter' : !!process.env.OPENAI_API_KEY;
+    const model = hasRequestApiKey
+        ? (isOpenAI ? (process.env.OPENAI_MODEL || 'gpt-5.4-nano') : (process.env.OPENROUTER_MODEL || 'openrouter/elephant-alpha'))
+        : (process.env.LLM_MODEL || (isOpenAI ? 'gpt-5.4-nano' : 'openrouter/elephant-alpha'));
 
     return {
         apiKey,
         isMockMode,
         isOpenAI,
         baseURL: isOpenAI ? 'https://api.openai.com/v1' : 'https://openrouter.ai/api/v1',
-        model: process.env.LLM_MODEL || (isOpenAI ? 'gpt-5.4-nano' : 'openrouter/elephant-alpha')
+        model
     };
 }
 
-function shouldUseMockMode() {
-    return getApiConfig().isMockMode;
+function shouldUseMockMode(requestOverride = null) {
+    return getApiConfig(requestOverride).isMockMode;
 }
 
 function getResponsesTextFormat() {
@@ -675,7 +699,7 @@ app.use(cors());
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Provider, X-OpenAI-API-Key, X-OpenRouter-API-Key');
     next();
 });
 
@@ -741,15 +765,16 @@ const os = require('os');
 // POST /api/tutor endpoint
 app.post('/api/tutor', validateTutorRequest, async (req, res) => {
     let { questionText, screenshotImage, audioFile } = req.body;
+    const requestApiOverride = getRequestApiOverride(req);
     console.log('Received /api/tutor request:', { questionText, hasImage: !!screenshotImage, hasAudio: !!audioFile });
 
     try {
         let responseData;
-        const hasValidApiKey = !shouldUseMockMode();
+        const hasValidApiKey = !shouldUseMockMode(requestApiOverride);
 
         if (hasValidApiKey && audioFile) {
             try {
-                const transcription = await transcribeAudio(audioFile);
+                const transcription = await transcribeAudio(audioFile, requestApiOverride);
                 if (transcription) {
                     console.log('Transcribed audio:', transcription);
                     questionText = transcription;
@@ -762,7 +787,7 @@ app.post('/api/tutor', validateTutorRequest, async (req, res) => {
         if (hasValidApiKey) {
             try {
                 responseData = finalizeTutorResponse(
-                    await callLLM(questionText, screenshotImage),
+                    await callLLM(questionText, screenshotImage, requestApiOverride),
                     { questionText, screenshotImage }
                 );
             } catch (llmError) {
@@ -804,13 +829,13 @@ app.post('/api/tutor', validateTutorRequest, async (req, res) => {
 // OPTIONS endpoint
 app.options('/api/tutor', (req, res) => {
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Provider, X-OpenAI-API-Key, X-OpenRouter-API-Key');
     res.status(200).end();
 });
 
-async function transcribeAudio(base64Audio) {
-    const config = getApiConfig();
-    if (config.isMockMode) return null;
+async function transcribeAudio(base64Audio, requestOverride = null) {
+    const config = getApiConfig(requestOverride);
+    if (config.isMockMode || !config.isOpenAI) return null;
     const openai = new OpenAI({ apiKey: config.apiKey, baseURL: 'https://api.openai.com/v1' });
     const tempFilePath = path.join(os.tmpdir(), `math_tutor_${Date.now()}.m4a`);
     try {
@@ -829,8 +854,8 @@ async function transcribeAudio(base64Audio) {
     }
 }
 
-async function callLLM(text, image) {
-    const config = getApiConfig();
+async function callLLM(text, image, requestOverride = null) {
+    const config = getApiConfig(requestOverride);
     if (config.isMockMode) throw new Error('MISSING_API_KEY');
     const openai = new OpenAI({ apiKey: config.apiKey, baseURL: config.baseURL });
 
@@ -939,7 +964,7 @@ app.use((err, req, res, next) => {
 process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
 process.on('unhandledRejection', (reason, promise) => console.error('Unhandled Rejection at:', promise, 'reason:', reason));
 
-app._internal = { extractExpressionFromQuestion, buildHeuristicResponse, finalizeTutorResponse };
+app._internal = { extractExpressionFromQuestion, buildHeuristicResponse, finalizeTutorResponse, getApiConfig, getRequestApiOverride };
 module.exports = app;
 
 if (require.main === module) {
